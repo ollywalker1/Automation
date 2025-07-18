@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook Sender</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        /* Basic input styling */
+        .form-input {
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            color: #e5e7eb;
+            border-radius: 0.375rem;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.5);
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #d1d5db;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-4 md:p-8 flex flex-col items-center justify-center min-h-screen">
+        
+        <div class="w-full max-w-2xl">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">Webhook Sender</h1>
+                <p class="text-lg text-gray-400">Craft and send custom JSON payloads to your webhook URL.</p>
+            </header>
+
+            <main id="app-container" class="bg-gray-900 p-6 md:p-8 rounded-lg shadow-2xl space-y-6">
+                
+                <!-- Webhook Configuration Section -->
+                <section id="config-section">
+                    <h2 class="text-2xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Configuration</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="webhook-url-input" class="form-label">Webhook URL</label>
+                            <input type="url" id="webhook-url-input" class="form-input" placeholder="https://your-webhook-url.com/api">
+                        </div>
+                        <div>
+                            <label for="webhook-auth-input" class="form-label">Authentication Key</label>
+                            <input type="password" id="webhook-auth-input" class="form-input" placeholder="Enter your secret key">
+                            <p class="text-xs text-gray-500 mt-1">This will be sent as 'key' in the payload.</p>
+                        </div>
+                    </div>
+                     <div class="mt-4 flex justify-end">
+                        <button id="save-config-btn" class="px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors text-sm font-semibold">Save Config</button>
+                    </div>
+                </section>
+
+                <!-- Payload Builder Section -->
+                <section id="payload-section">
+                    <h2 class="text-2xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Payload Details</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="exchange-name-input" class="form-label">Exchange Name</label>
+                            <input type="text" id="exchange-name-input" class="form-input" value="binance">
+                        </div>
+                        <div>
+                            <label for="market-input" class="form-label">Market</label>
+                            <input type="text" id="market-input" class="form-input" placeholder="e.g., BTC/USDT">
+                        </div>
+                        <div>
+                            <label for="action-input" class="form-label">Action</label>
+                            <input type="text" id="action-input" class="form-input" value="create">
+                        </div>
+                        <div>
+                            <label for="algorithm-input" class="form-label">Algorithm</label>
+                            <input type="text" id="algorithm-input" class="form-input" value="custom_signal_v1">
+                        </div>
+                        <div>
+                            <label for="buy-target-input" class="form-label">Buy Target</label>
+                            <input type="text" id="buy-target-input" class="form-input" placeholder="e.g., 65000">
+                        </div>
+                        <div>
+                            <label for="take-profit-input" class="form-label">Take Profit</label>
+                            <input type="text" id="take-profit-input" class="form-input" placeholder="e.g., 68000">
+                        </div>
+                        <div>
+                            <label for="stop-loss-input" class="form-label">Stop Loss</label>
+                            <input type="text" id="stop-loss-input" class="form-input" placeholder="e.g., 63000">
+                        </div>
+                         <div>
+                            <label for="client-signal-id-input" class="form-label">Client Signal ID</label>
+                            <input type="text" id="client-signal-id-input" class="form-input" placeholder="Unique ID for this signal">
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <label for="comment-input" class="form-label">Comment</label>
+                        <textarea id="comment-input" rows="3" class="form-input" placeholder="Add any additional comments here..."></textarea>
+                    </div>
+                </section>
+
+                <!-- Action Buttons -->
+                <div class="mt-8 pt-6 border-t border-gray-700 flex justify-end space-x-4">
+                    <button id="test-webhook-btn" class="px-6 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors font-semibold">Test</button>
+                    <button id="send-webhook-btn" class="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors font-semibold">Send Webhook</button>
+                </div>
+
+            </main>
+        </div>
+    </div>
+    
+    <!-- Notification Modal -->
+    <div id="notification-modal" class="modal-overlay hidden">
+        <div id="notification-box" class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg m-4 border-t-4">
+             <div class="flex justify-between items-center mb-4">
+                <h3 id="notification-title" class="text-xl font-bold text-white">Notification</h3>
+                <button id="close-notification-btn" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div id="notification-content" class="text-gray-300"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element References ---
+            const webhookUrlInput = document.getElementById('webhook-url-input');
+            const webhookAuthInput = document.getElementById('webhook-auth-input');
+            const saveConfigBtn = document.getElementById('save-config-btn');
+            
+            const sendWebhookBtn = document.getElementById('send-webhook-btn');
+            const testWebhookBtn = document.getElementById('test-webhook-btn');
+            const clientSignalIdInput = document.getElementById('client-signal-id-input');
+
+            const notificationModal = document.getElementById('notification-modal');
+            const notificationBox = document.getElementById('notification-box');
+            const notificationTitle = document.getElementById('notification-title');
+            const notificationContent = document.getElementById('notification-content');
+            const closeNotificationBtn = document.getElementById('close-notification-btn');
+
+            // --- Functions ---
+
+            /**
+             * Displays the notification modal with a message.
+             * @param {string} title - The title of the notification.
+             * @param {string} message - The main content of the notification.
+             * @param {boolean} isError - If true, styles the modal as an error.
+             */
+            function showNotification(title, message, isError = false) {
+                notificationTitle.textContent = title;
+                notificationContent.innerHTML = message; // Use innerHTML to allow for formatted messages
+                
+                notificationBox.classList.remove('border-green-500', 'border-red-500');
+                if (isError) {
+                    notificationBox.classList.add('border-red-500');
+                } else {
+                    notificationBox.classList.add('border-green-500');
+                }
+
+                notificationModal.classList.remove('hidden');
+            }
+
+            /**
+             * Sends a data payload to the configured webhook URL.
+             * @param {object} data - The JSON payload to send.
+             */
+            async function sendToWebhook(data) {
+                let webhookUrl = localStorage.getItem('webhookUrl');
+                if (!webhookUrl) {
+                    showNotification('Configuration Error', 'Webhook URL is not saved. Please save it in the Configuration section.', true);
+                    return;
+                }
+                // Prepend https:// if no protocol is specified
+                if (!webhookUrl.startsWith('http://') && !webhookUrl.startsWith('https://')) {
+                    webhookUrl = 'https://' + webhookUrl;
+                }
+
+                const headers = { 'Content-Type': 'application/json' };
+                
+                try {
+                    const response = await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(data),
+                    });
+
+                    if (response.ok) {
+                        const responseData = await response.json().catch(() => ({})); // Handle non-json responses gracefully
+                        showNotification('Webhook Sent Successfully!', `Status: ${response.status}<br><pre class="mt-2 p-2 bg-gray-700 rounded text-xs">${JSON.stringify(responseData, null, 2)}</pre>`);
+                    } else {
+                        const errorData = await response.json().catch(() => ({ msg: 'Could not parse error response.' }));
+                        showNotification(
+                            'Failed to Send Webhook', 
+                            `The server responded with status <b>${response.status}</b>.<br>Message: ${errorData.msg || 'No specific error message provided.'}`, 
+                            true
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error sending to webhook:', error);
+                    showNotification('Network or Application Error', `An error occurred while sending the request. Check the browser console for details.<br>Error: ${error.message}`, true);
+                }
+            }
+            
+            /**
+             * Generates a unique client signal ID.
+             */
+            function generateSignalId() {
+                return `signal_${Date.now()}`;
+            }
+
+
+            // --- Event Listeners ---
+
+            // Save configuration to localStorage
+            saveConfigBtn.addEventListener('click', () => {
+                localStorage.setItem('webhookUrl', webhookUrlInput.value);
+                localStorage.setItem('webhookAuth', webhookAuthInput.value);
+                showNotification('Configuration Saved', 'Your Webhook URL and Auth Key have been saved locally.');
+            });
+
+            // Send custom webhook from form data
+            sendWebhookBtn.addEventListener('click', () => {
+                const payload = {
+                    key: webhookAuthInput.value || (localStorage.getItem('webhookAuth') || ''),
+                    exchange_name: document.getElementById('exchange-name-input').value,
+                    market: document.getElementById('market-input').value,
+                    action: document.getElementById('action-input').value,
+                    algorithm: document.getElementById('algorithm-input').value,
+                    buyTarget: document.getElementById('buy-target-input').value,
+                    takeProfit: document.getElementById('take-profit-input').value,
+                    stopLoss: document.getElementById('stop-loss-input').value,
+                    clientSignalId: clientSignalIdInput.value || generateSignalId(),
+                    comment: document.getElementById('comment-input').value
+                };
+                sendToWebhook(payload);
+            });
+
+            // Send a predefined test webhook
+            testWebhookBtn.addEventListener('click', () => {
+                const testData = {
+                    key: webhookAuthInput.value || (localStorage.getItem('webhookAuth') || ''),
+                    exchange_name: "binance",
+                    market: "USDT/TEST",
+                    action: "create",
+                    algorithm: "test_signal",
+                    buyTarget: "1000",
+                    takeProfit: "1100",
+                    stopLoss: "900",
+                    clientSignalId: "test_" + Date.now(),
+                    comment: "This is a test webhook from the Webhook Sender tool."
+                };
+                showNotification('Sending Test...', `Sending a predefined test payload.`, false);
+                sendToWebhook(testData);
+            });
+
+            // Close notification modal
+            closeNotificationBtn.addEventListener('click', () => {
+                notificationModal.classList.add('hidden');
+            });
+            notificationModal.addEventListener('click', (e) => {
+                if(e.target === notificationModal) {
+                    notificationModal.classList.add('hidden');
+                }
+            });
+
+            // --- Initial Setup ---
+
+            // Load saved config from localStorage
+            webhookUrlInput.value = localStorage.getItem('webhookUrl') || '';
+            webhookAuthInput.value = localStorage.getItem('webhookAuth') || '';
+            
+            // Set an initial unique signal ID
+            clientSignalIdInput.value = generateSignalId();
+        });
+    </script>
+</body>
+</html>
