@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Strategy Ranker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 240px; 
+            background-color: #1f2937;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 50; 
+            bottom: 125%;
+            left: 50%;
+            margin-left: -120px; /* Centered */
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid #374151;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.8rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #374151 transparent transparent transparent;
+        }
+        .table-container {
+            max-height: 70vh; /* Adjusted height */
+            overflow: auto;
+        }
+        /* Custom scrollbar for webkit browsers */
+        .table-container::-webkit-scrollbar, #log-content-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track, #log-content-container::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        .table-container::-webkit-scrollbar-thumb, #log-content-container::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 10px;
+            border: 2px solid #1f2937;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        details summary:after {
+            content: '+';
+            float: right;
+            font-size: 1.5em;
+            line-height: 0.5;
+            margin-top: -4px;
+        }
+        details[open] summary:after {
+            content: '-';
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-6 relative">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">Crypto Strategy Ranker</h1>
+            <p id="subtitle" class="text-lg text-gray-400">Top 1000 Binance Altcoins (USDT) Ranked by Golden Cross Strategy</p>
+            <div id="countdown" class="text-sm text-indigo-400 mt-2"></div>
+            <div class="mt-4 flex justify-center items-center space-x-2">
+                <select id="timeframe-select" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="15m">15 Minute</option>
+                    <option value="30m">30 Minute</option>
+                    <option value="1h">1 Hour</option>
+                    <option value="4h" selected>4 Hour</option>
+                    <option value="1d">1 Day</option>
+                </select>
+                <button id="set-default-btn" class="px-5 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Set as Default</button>
+                <button id="log-btn" class="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors">Log</button>
+            </div>
+            <button id="settings-btn" class="absolute top-0 right-0 p-2 text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </header>
+
+        <main id="app-container">
+            <div id="loader" class="text-center py-20">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-500 mx-auto"></div>
+                <p class="mt-4 text-lg text-gray-300">Fetching and analyzing 1000 coins...</p>
+                <p id="progress-text" class="text-sm text-gray-500">Initializing...</p>
+            </div>
+            
+            <div id="summary-section" class="hidden mb-8">
+                <!-- Top Tier Opportunity -->
+                <div id="top-tier-opportunity" class="mb-8"></div>
+                
+                 <!-- Top 3 Coins will be inserted here -->
+                <div id="top-coins-container" class="mb-6"></div>
+
+                <!-- Score Key -->
+                <div class="flex justify-center items-center space-x-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <h4 class="font-semibold text-white mr-4">Score Key:</h4>
+                    <div class="flex items-center space-x-2">
+                        <span class="h-4 w-4 rounded-full bg-green-500"></span>
+                        <span class="text-sm text-gray-300">High Potential (75+)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="h-4 w-4 rounded-full bg-yellow-500"></span>
+                        <span class="text-sm text-gray-300">Potential (50-74)</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="h-4 w-4 rounded-full bg-red-500"></span>
+                        <span class="text-sm text-gray-300">Low Potential (&lt;50)</span>
+                    </div>
+                </div>
+
+                <!-- Technical Indicator Explanation -->
+                <div class="mt-6">
+                    <details class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 transition-all duration-300">
+                        <summary class="font-semibold text-white cursor-pointer text-lg">
+                            Technical Indicator Explanation
+                        </summary>
+                        <div class="mt-4 text-gray-300 space-y-4 border-t border-gray-700 pt-4">
+                            <div>
+                                <h4 class="font-bold text-indigo-400">Scoring System: Golden Cross Strategy</h4>
+                                <p class="text-sm mt-1">The "Scan Score" is calculated based on two potential Golden Cross scenarios on the selected timeframe. A coin's final score is the highest score achieved from either of these two options.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-indigo-400">Option 1: 21/55 EMA Golden Cross (100 Points Total)</h4>
+                                <ul class="list-disc list-inside text-sm mt-1 space-y-1">
+                                    <li><span class="text-green-400 font-bold">✓</span> 21 EMA crosses above 55 EMA: <strong>+50 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> Both EMAs are above 200 EMA: <strong>+20 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> RSI is above 50: <strong>+10 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> Volume > 1.2x Average: <strong>+10 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> Price closed above both 21 & 55 EMA: <strong>+10 pts</strong></li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-indigo-400">Option 2: 55/200 EMA Golden Cross (100 Points Total)</h4>
+                                 <ul class="list-disc list-inside text-sm mt-1 space-y-1">
+                                    <li><span class="text-green-400 font-bold">✓</span> 55 EMA crosses above 200 EMA: <strong>+60 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> 21 EMA is already above 55 EMA: <strong>+15 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> RSI is above 50: <strong>+10 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> Volume > 1.5x Average: <strong>+10 pts</strong></li>
+                                    <li><span class="text-green-400 font-bold">✓</span> Price closed above all three EMAs: <strong>+5 pts</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+
+            <div id="results-table" class="hidden bg-gray-900 rounded-lg shadow-2xl overflow-hidden">
+                <div class="table-container">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800 sticky top-0 z-10">
+                            <tr>
+                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Rank</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Coin</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Price</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">24h Change</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="Primary Golden Cross Signal (21/55 or 55/200)">Golden Cross</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="RSI > 50">RSI</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="Trend Confirmations (e.g., EMAs > 200, Price > EMAs)">Trend</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="Volume > 1.2x or 1.5x Average">Volume</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Scan Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="coin-table-body" class="divide-y divide-gray-800">
+                            <!-- Coin data will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">Webhook Settings</h3>
+                <button id="close-settings-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div>
+                <label for="webhook-url-input" class="block text-sm font-medium text-gray-300 mb-2">Webhook URL</label>
+                <input type="url" id="webhook-url-input" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., https://www.growlonix.com/api/signal">
+                <p class="text-xs text-gray-500 mt-1">Sends a notification when a Top-Tier coin is found.</p>
+            </div>
+            <div class="mt-4">
+                <label for="webhook-auth-input" class="block text-sm font-medium text-gray-300 mb-2">Growlonix Authentication Key</label>
+                <input type="password" id="webhook-auth-input" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter your secret key from Growlonix">
+                <p class="text-xs text-gray-500 mt-1">This will be sent as 'key' in the JSON payload.</p>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="test-webhook-btn" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Test</button>
+                <button id="save-settings-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification Modal -->
+    <div id="notification-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg m-4 border-t-4 border-indigo-500">
+             <div class="flex justify-between items-center mb-4">
+                <h3 id="notification-title" class="text-xl font-bold text-white">Notification</h3>
+                <button id="close-notification-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div id="notification-content" class="text-gray-300"></div>
+        </div>
+    </div>
+
+    <!-- Log Modal Added Here -->
+    <div id="log-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl m-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">Top-Tier Opportunity Log</h3>
+                <button id="close-log-btn" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="log-content-container" class="table-container" style="max-height: 50vh;">
+                <!-- Log entries will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const API_BASE = 'https://api.binance.com/api/v3/';
+        const KLINE_ENDPOINT = 'klines';
+        const TICKER_ENDPOINT = 'ticker/24hr';
+        const EXCHANGE_INFO_ENDPOINT = 'exchangeInfo';
+
+        const greenTickSVG = `<svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>`;
+        const redCrossSVG = `<svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
+
+        let processedCoinsData = []; // Store processed coins globally
+        let countdownInterval;
+        const timeframeMap = { '15m': '15m', '30m': '30m', '1h': '1H', '4h': '4H', '1d': '1D' };
+
+        // --- Technical Analysis Indicator Calculations ---
+
+        function calculateEMA(data, period) {
+            const k = 2 / (period + 1);
+            if (data.length < period) return Array(data.length).fill(null);
+            
+            let ema = data.slice(0, period).reduce((sum, val) => sum + val, 0) / period;
+            const emas = Array(period - 1).fill(null);
+            emas.push(ema);
+            for (let i = period; i < data.length; i++) {
+                ema = (data[i] * k) + (ema * (1 - k));
+                emas.push(ema);
+            }
+            return emas;
+        }
+
+        function calculateRSI(data, period = 14) {
+            if (data.length < period + 1) return Array(data.length).fill(null);
+            const rsi = [];
+            let gains = [];
+            let losses = [];
+
+            for (let i = 1; i < data.length; i++) {
+                const change = data[i] - data[i - 1];
+                gains.push(change > 0 ? change : 0);
+                losses.push(change < 0 ? Math.abs(change) : 0);
+            }
+
+            let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+            let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+            
+            for (let i = 0; i < period; i++) rsi.push(null);
+            
+            if (avgLoss === 0) {
+                 rsi.push(100);
+            } else {
+                let rs = avgGain / avgLoss;
+                rsi.push(100 - (100 / (1 + rs)));
+            }
+            
+            for (let i = period; i < gains.length; i++) {
+                avgGain = (avgGain * (period - 1) + gains[i]) / period;
+                avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
+                if (avgLoss === 0) {
+                    rsi.push(100);
+                } else {
+                    let rs = avgGain / avgLoss;
+                    rsi.push(100 - (100 / (1 + rs)));
+                }
+            }
+            return rsi;
+        }
+
+        // --- Scoring Logic based on Golden Cross Strategy ---
+
+        function calculateScore(klines, tickerData, timeframe) {
+            const closes = klines.map(k => parseFloat(k[4]));
+            const volumes = klines.map(k => parseFloat(k[5]));
+            
+            if (closes.length < 201) return { score: 0, checks: {} }; // Need at least 201 periods for 200 EMA
+
+            // Calculate Indicators
+            const ema21 = calculateEMA(closes, 21);
+            const ema55 = calculateEMA(closes, 55);
+            const ema200 = calculateEMA(closes, 200);
+            const rsi = calculateRSI(closes, 14);
+            const avgVolume30 = volumes.slice(-30).reduce((a, b) => a + b, 0) / 30;
+            const currentVolume = volumes.at(-1);
+            const currentPrice = closes.at(-1);
+
+            let scoreOption1 = 0;
+            let scoreOption2 = 0;
+            let checks = {};
+
+            // --- Option 1: 21/55 EMA Golden Cross ---
+            const checks1 = {};
+            // Primary Signal: Check for crossover in the last 3 candles
+            checks1.cross21on55 = false;
+            for (let i = 1; i <= 3; i++) {
+                if (ema21.at(-i) > ema55.at(-i) && ema21.at(-i-1) <= ema55.at(-i-1)) {
+                    checks1.cross21on55 = true;
+                    break;
+                }
+            }
+            
+            if (checks1.cross21on55) {
+                scoreOption1 += 50;
+                // Trend Confirmation
+                checks1.trendConf21_55 = ema21.at(-1) > ema200.at(-1) && ema55.at(-1) > ema200.at(-1);
+                if (checks1.trendConf21_55) scoreOption1 += 20;
+                // RSI Filter
+                checks1.rsi50 = rsi.at(-1) > 50;
+                if (checks1.rsi50) scoreOption1 += 10;
+                // Volume Confirmation
+                checks1.volume1_2x = currentVolume > avgVolume30 * 1.2;
+                if (checks1.volume1_2x) scoreOption1 += 10;
+                // Price Action
+                checks1.priceAction21_55 = currentPrice > ema21.at(-1) && currentPrice > ema55.at(-1);
+                if (checks1.priceAction21_55) scoreOption1 += 10;
+            }
+
+            // --- Option 2: 55/200 EMA Golden Cross ---
+            const checks2 = {};
+            // Primary Signal: Check for crossover in the last 3 candles
+            checks2.cross55on200 = false;
+            for (let i = 1; i <= 3; i++) {
+                if (ema55.at(-i) > ema200.at(-i) && ema55.at(-i-1) <= ema200.at(-i-1)) {
+                    checks2.cross55on200 = true;
+                    break;
+                }
+            }
+
+            if (checks2.cross55on200) {
+                scoreOption2 += 60;
+                // Momentum Confirmation
+                checks2.momentumConf = ema21.at(-1) > ema55.at(-1);
+                if (checks2.momentumConf) scoreOption2 += 15;
+                // RSI Filter
+                checks2.rsi50 = rsi.at(-1) > 50;
+                if (checks2.rsi50) scoreOption2 += 10;
+                // Volume Confirmation
+                checks2.volume1_5x = currentVolume > avgVolume30 * 1.5;
+                if (checks2.volume1_5x) scoreOption2 += 10;
+                // Price Action
+                checks2.priceAction55_200 = currentPrice > ema21.at(-1) && currentPrice > ema55.at(-1) && currentPrice > ema200.at(-1);
+                if (checks2.priceAction55_200) scoreOption2 += 5;
+            }
+
+            // Determine final score and checks to display
+            const score = Math.max(scoreOption1, scoreOption2);
+            if (score > 0) {
+                if (scoreOption1 >= scoreOption2) {
+                    checks = {
+                        goldenCross: { active: checks1.cross21on55, text: '21/55 EMA Cross' },
+                        rsi: { active: checks1.rsi50, text: 'RSI > 50' },
+                        trend: { active: checks1.trendConf21_55 && checks1.priceAction21_55, text: 'Trend Confirmed' },
+                        volume: { active: checks1.volume1_2x, text: 'Volume > 1.2x Avg' }
+                    };
+                } else {
+                    checks = {
+                        goldenCross: { active: checks2.cross55on200, text: '55/200 EMA Cross' },
+                        rsi: { active: checks2.rsi50, text: 'RSI > 50' },
+                        trend: { active: checks2.momentumConf && checks2.priceAction55_200, text: 'Trend Confirmed' },
+                        volume: { active: checks2.volume1_5x, text: 'Volume > 1.5x Avg' }
+                    };
+                }
+            }
+
+            return { score, checks };
+        }
+        
+        // --- Main Application Logic ---
+
+        async function main(interval = '4h') {
+            const loader = document.getElementById('loader');
+            const progressText = document.getElementById('progress-text');
+            const summarySection = document.getElementById('summary-section');
+            const topCoinsContainer = document.getElementById('top-coins-container');
+            const topTierContainer = document.getElementById('top-tier-opportunity');
+            const resultsTable = document.getElementById('results-table');
+            const tableBody = document.getElementById('coin-table-body');
+            const subtitle = document.getElementById('subtitle');
+            
+            const timeframeKey = Object.keys(timeframeMap).find(key => timeframeMap[key] === interval) || interval;
+            subtitle.textContent = `Top 1000 Binance Altcoins (USDT) Ranked by Golden Cross Strategy (${timeframeMap[timeframeKey]} Timeframe)`;
+
+
+            loader.classList.remove('hidden');
+            summarySection.classList.add('hidden');
+            resultsTable.classList.add('hidden');
+
+            try {
+                // 1. Fetch all symbols and filter for top 1000 USDT pairs by volume
+                progressText.textContent = 'Fetching all Binance symbols...';
+                const exchangeInfo = await (await fetch(API_BASE + EXCHANGE_INFO_ENDPOINT)).json();
+                const allTickers = await (await fetch(API_BASE + TICKER_ENDPOINT)).json();
+
+                const usdtSymbols = exchangeInfo.symbols
+                    .filter(s => 
+                        s.status === 'TRADING' && 
+                        s.quoteAsset === 'USDT' &&
+                        s.isSpotTradingAllowed === true &&
+                        !s.symbol.endsWith('UPUSDT') && 
+                        !s.symbol.endsWith('DOWNUSDT')
+                    )
+                    .map(s => s.symbol);
+
+                const top1000 = allTickers
+                    .filter(t => usdtSymbols.includes(t.symbol))
+                    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+                    .slice(0, 1000);
+
+                // 2. Fetch kline data and calculate scores for each coin
+                processedCoinsData = []; // Clear previous data
+                let count = 0;
+                for (const ticker of top1000) {
+                    count++;
+                    progressText.textContent = `Analyzing coin ${count} of 1000: ${ticker.symbol}...`;
+                    try {
+                        const klines = await (await fetch(`${API_BASE}${KLINE_ENDPOINT}?symbol=${ticker.symbol}&interval=${interval}&limit=250`)).json();
+                        if (klines.length < 201) continue;
+
+                        const { score, checks } = calculateScore(klines, ticker, interval);
+                        if (score > 0) { // Only add coins that have a score
+                            processedCoinsData.push({
+                                symbol: ticker.symbol,
+                                price: parseFloat(ticker.lastPrice),
+                                change: parseFloat(ticker.priceChangePercent),
+                                score,
+                                checks
+                            });
+                        }
+                    } catch (e) {
+                        console.error(`Failed to process ${ticker.symbol}:`, e);
+                    }
+                }
+                
+                // 3. Sort by score
+                processedCoinsData.sort((a,b) => b.score - a.score);
+
+                loader.classList.add('hidden');
+                summarySection.classList.remove('hidden');
+                resultsTable.classList.remove('hidden');
+                
+                // Display Top Tier Opportunity
+                const topTierCoins = processedCoinsData.filter(c => c.score >= 90);
+                if (topTierCoins.length > 0) {
+                    topTierContainer.innerHTML = `
+                        <h3 class="text-2xl font-bold text-center text-yellow-400 mb-2">🏆 Top Tier Opportunities 🏆</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            ${topTierCoins.map(coin => `
+                                <div class="bg-gray-800 p-4 rounded-lg border-2 border-yellow-400 shadow-lg text-center">
+                                    <h4 class="text-2xl font-bold text-white">${coin.symbol.replace('USDT', '')}</h4>
+                                    <p class="text-lg text-gray-300">Scan Score: <span class="font-bold text-yellow-400">${coin.score.toFixed(0)}</span></p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    for (const coin of topTierCoins) {
+                        updateTopTierLog(coin);
+                        
+                        const payload = {
+                            key: localStorage.getItem('webhookAuth') || 'YOUR_SECRET_API_KEY',
+                            exchange_name: "binance",
+                            market: coin.symbol.replace('USDT', '/USDT'),
+                            action: "create",
+                            algorithm: "crypto_ranker_v2_golden_cross",
+                            clientSignalId: `${coin.symbol}_${new Date().getTime()}`,
+                            comment: `Top-Tier Opportunity: ${coin.symbol} | Scan Score: ${coin.score.toFixed(0)}`
+                        };
+                        await sendToWebhook(payload);
+                    }
+                } else {
+                    topTierContainer.innerHTML = `
+                         <div class="bg-gray-800/50 p-4 rounded-lg border border-gray-700 text-center">
+                             <p class="text-lg text-gray-400">No top-tier opportunities (score >= 90) found at the moment.</p>
+                         </div>
+                    `;
+                }
+
+
+                // Display Top 3 Coins
+                const top3Display = processedCoinsData.slice(0, 3);
+                topCoinsContainer.innerHTML = `
+                    <h3 class="text-2xl font-bold text-center text-white mb-4 mt-8">Top 3 Opportunities</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        ${top3Display.map((coin, index) => {
+                            const score = coin.score;
+                            const scoreColor = score >= 75 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                            const borderScoreColor = score >= 75 ? 'border-green-500' : score >= 50 ? 'border-yellow-500' : 'border-red-500';
+                            return `
+                                <div class="bg-gray-800 p-4 rounded-lg border-l-4 ${borderScoreColor} shadow-lg">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <span class="text-sm text-gray-400">#${index + 1}</span>
+                                            <h4 class="text-xl font-bold text-white">${coin.symbol.replace('USDT', '')}</h4>
+                                        </div>
+                                        <span class="inline-flex items-center rounded-md px-3 py-1 text-lg font-medium ${scoreColor}">${score.toFixed(0)}</span>
+                                    </div>
+                                </div>
+                            `
+                        }).join('')}
+                    </div>
+                `;
+
+                // Display full table
+                tableBody.innerHTML = processedCoinsData.map((coin, index) => {
+                    const priceChangeColor = coin.change >= 0 ? 'text-green-400' : 'text-red-400';
+                    const score = coin.score;
+                    const scoreColor = score >= 75 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                    
+                    const goldenCrossIcon = coin.checks.goldenCross ? createIconWithTooltip(coin.checks.goldenCross.active, coin.checks.goldenCross.text) : '';
+                    const rsiIcon = coin.checks.rsi ? createIconWithTooltip(coin.checks.rsi.active, coin.checks.rsi.text) : '';
+                    const trendIcon = coin.checks.trend ? createIconWithTooltip(coin.checks.trend.active, coin.checks.trend.text) : '';
+                    const volumeIcon = coin.checks.volume ? createIconWithTooltip(coin.checks.volume.active, coin.checks.volume.text) : '';
+                    
+                    return `
+                        <tr data-symbol="${coin.symbol}">
+                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">${index + 1}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">${coin.symbol.replace('USDT', '')}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">$${coin.price.toFixed(4)}</td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm ${priceChangeColor}">${coin.change.toFixed(2)}%</td>
+                            <td class="px-3 py-4 text-sm"><div class="flex space-x-1">${goldenCrossIcon}</div></td>
+                            <td class="px-3 py-4 text-sm"><div class="flex space-x-1">${rsiIcon}</div></td>
+                            <td class="px-3 py-4 text-sm"><div class="flex space-x-1">${trendIcon}</div></td>
+                            <td class="px-3 py-4 text-sm"><div class="flex space-x-1">${volumeIcon}</div></td>
+                            <td class="whitespace-nowrap px-3 py-4 text-sm text-white">
+                                <div class="tooltip">
+                                    <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${scoreColor}">${score.toFixed(0)}</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error("Failed to load crypto data:", error);
+                loader.innerHTML = '<p class="text-red-500">Failed to load data. Please try again later.</p>';
+            }
+        }
+        
+        function createIconWithTooltip(isTicked, text) {
+            const icon = isTicked ? greenTickSVG : redCrossSVG;
+            return `
+                <div class="tooltip">
+                    ${icon}
+                    <span class="tooltiptext">${text}</span>
+                </div>
+            `;
+        }
+        
+        function updateTopTierLog(coin) {
+            let log = JSON.parse(localStorage.getItem('topTierLog')) || [];
+            const logEntry = {
+                symbol: coin.symbol,
+                timestamp: new Date().toISOString()
+            };
+            log.unshift(logEntry); 
+            localStorage.setItem('topTierLog', JSON.stringify(log));
+        }
+
+        function displayLog() {
+            const logContainer = document.getElementById('log-content-container');
+            const logModal = document.getElementById('log-modal');
+            const log = JSON.parse(localStorage.getItem('topTierLog')) || [];
+
+            if (log.length === 0) {
+                logContainer.innerHTML = `<p class="text-gray-400 text-center">No top-tier opportunities have been logged yet.</p>`;
+            } else {
+                let tableHtml = `
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800 sticky top-0">
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Coin</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Date & Time Logged</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800">
+                            ${log.map(entry => `
+                                <tr>
+                                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">${entry.symbol.replace('USDT', '')}</td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">${new Date(entry.timestamp).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                logContainer.innerHTML = tableHtml;
+            }
+            logModal.classList.remove('hidden');
+        }
+
+        async function sendToWebhook(data, isTest = false) {
+            let webhookUrl = localStorage.getItem('webhookUrl');
+            if (!webhookUrl) {
+                if (isTest) {
+                    showNotification('Error', 'Webhook URL is not saved. Please save it in settings.');
+                }
+                return;
+            }
+            if (webhookUrl && !webhookUrl.startsWith('http://') && !webhookUrl.startsWith('https://')) {
+                webhookUrl = 'https://' + webhookUrl;
+            }
+
+            const headers = { 'Content-Type': 'application/json' };
+            
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(data),
+                });
+
+                if (isTest) {
+                    if (response.ok) {
+                        showNotification('Success', 'Test data sent to webhook successfully!');
+                    } else {
+                        const errorData = await response.json();
+                        showNotification('Error', `Failed to send test data. Status: ${response.status}. Message: ${errorData.msg || 'No message'}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error sending to webhook:', error);
+                if (isTest) {
+                    showNotification('Error', 'An error occurred while sending the test request. Check the console for details.');
+                }
+            }
+        }
+        
+        function showNotification(title, message) {
+            const modal = document.getElementById('notification-modal');
+            const titleEl = document.getElementById('notification-title');
+            const contentEl = document.getElementById('notification-content');
+            const closeBtn = document.getElementById('close-notification-btn');
+
+            titleEl.textContent = title;
+            contentEl.innerHTML = `<p>${message}</p>`;
+            
+            const close = () => modal.classList.add('hidden');
+            closeBtn.onclick = close;
+
+            modal.classList.remove('hidden');
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const timeframeSelect = document.getElementById('timeframe-select');
+            const setDefaultBtn = document.getElementById('set-default-btn');
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const saveSettingsBtn = document.getElementById('save-settings-btn');
+            const testWebhookBtn = document.getElementById('test-webhook-btn');
+            const webhookUrlInput = document.getElementById('webhook-url-input');
+            const webhookAuthInput = document.getElementById('webhook-auth-input');
+            
+            const logBtn = document.getElementById('log-btn');
+            const logModal = document.getElementById('log-modal');
+            const closeLogBtn = document.getElementById('close-log-btn');
+
+            let defaultTimeframe = localStorage.getItem('defaultTimeframe') || '4h';
+            timeframeSelect.value = defaultTimeframe;
+            if(webhookUrlInput) {
+                webhookUrlInput.value = localStorage.getItem('webhookUrl') || '';
+            }
+             if(webhookAuthInput) {
+                webhookAuthInput.value = localStorage.getItem('webhookAuth') || '';
+            }
+            
+            function scheduleNextUpdate() {
+                 if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                }
+                
+                const timeframeDurations = { '15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440 };
+                const intervalMinutes = timeframeDurations[timeframeSelect.value];
+                const msInInterval = intervalMinutes * 60 * 1000;
+                
+                const now = new Date();
+                const lastCandleClose = Math.floor(now.getTime() / msInInterval) * msInInterval;
+                const nextCandleClose = lastCandleClose + msInInterval;
+                const timeToUpdate = nextCandleClose + (1 * 60 * 1000); // Add 1 minute buffer
+
+                setTimeout(async () => {
+                    await main(timeframeSelect.value);
+                    scheduleNextUpdate();
+                }, timeToUpdate - now.getTime());
+
+                const countdownElement = document.getElementById('countdown');
+                countdownInterval = setInterval(() => {
+                    const nowMs = new Date().getTime();
+                    const remainingMs = timeToUpdate - nowMs;
+
+                    if (remainingMs <= 0) {
+                        countdownElement.textContent = 'Updating...';
+                        clearInterval(countdownInterval);
+                        return;
+                    }
+
+                    const hours = Math.floor((remainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000);
+
+                    countdownElement.textContent = `Next update in: ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }, 1000);
+            }
+            
+            timeframeSelect.addEventListener('change', () => {
+                main(timeframeSelect.value);
+                scheduleNextUpdate();
+            });
+
+            if(setDefaultBtn) {
+                setDefaultBtn.addEventListener('click', () => {
+                    defaultTimeframe = timeframeSelect.value;
+                    localStorage.setItem('defaultTimeframe', defaultTimeframe);
+                    showNotification('Success', `Default timeframe set to ${timeframeMap[defaultTimeframe]}. The page will now refresh automatically based on this timeframe.`);
+                    main(defaultTimeframe);
+                    scheduleNextUpdate();
+                });
+            }
+            
+            if(settingsBtn) {
+                settingsBtn.addEventListener('click', () => {
+                    if(settingsModal) settingsModal.classList.remove('hidden');
+                });
+            }
+            if(closeSettingsBtn){
+                closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+            }
+            if(saveSettingsBtn){
+                saveSettingsBtn.addEventListener('click', () => {
+                    localStorage.setItem('webhookUrl', webhookUrlInput.value);
+                    localStorage.setItem('webhookAuth', webhookAuthInput.value);
+                    showNotification('Success', 'Webhook settings saved!');
+                    settingsModal.classList.add('hidden');
+                });
+            }
+            
+            if(testWebhookBtn){
+                testWebhookBtn.addEventListener('click', () => {
+                    const testData = {
+                        key: webhookAuthInput.value || 'YOUR_SECRET_API_KEY',
+                        exchange_name: "binance",
+                        market: "USDT/TEST",
+                        action: "create",
+                        algorithm: "test_signal",
+                        buyTarget: "1000",
+                        takeProfit: "1100",
+                        stopLoss: "900",
+                        clientSignalId: "test_" + Date.now(),
+                        comment: "Test webhook from Crypto Strategy Ranker - No real trading"
+                    };
+                    sendToWebhook(testData, true);
+                });
+            }
+
+            if(logBtn) {
+                logBtn.addEventListener('click', displayLog);
+            }
+
+            if(closeLogBtn) {
+                closeLogBtn.addEventListener('click', () => {
+                    logModal.classList.add('hidden');
+                });
+            }
+
+            main(defaultTimeframe);
+            scheduleNextUpdate();
+        });
+    </script>
+</body>
+</html>
