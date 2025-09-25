@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Strategy Ranker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 240px; 
+            background-color: #1f2937;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 50; 
+            bottom: 125%;
+            left: 50%;
+            margin-left: -120px; /* Centered */
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid #374151;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.8rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #374151 transparent transparent transparent;
+        }
+        .table-container {
+            max-height: 70vh; /* Adjusted height */
+            overflow: auto;
+        }
+        /* Custom scrollbar for webkit browsers */
+        .table-container::-webkit-scrollbar, #log-content-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track, #log-content-container::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        .table-container::-webkit-scrollbar-thumb, #log-content-container::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 10px;
+            border: 2px solid #1f2937;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        details summary:after {
+            content: '+';
+            float: right;
+            font-size: 1.5em;
+            line-height: 0.5;
+            margin-top: -4px;
+        }
+        details[open] summary:after {
+            content: '-';
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-6 relative">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">Crypto Strategy Ranker</h1>
+            <p id="subtitle" class="text-lg text-gray-400">Scanning for 4H/15M/5M Confluence Opportunities</p>
+            <div id="countdown" class="text-sm text-indigo-400 mt-2"></div>
+             <div class="mt-4 flex justify-center items-center space-x-2">
+                 <button id="log-btn" class="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors">Log</button>
+             </div>
+            <button id="settings-btn" class="absolute top-0 right-0 p-2 text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </header>
+
+        <main id="app-container">
+            <div id="loader" class="text-center py-20">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-500 mx-auto"></div>
+                <p class="mt-4 text-lg text-gray-300">Performing initial scan of 1000 coins...</p>
+                <p id="progress-text" class="text-sm text-gray-500">Initializing...</p>
+            </div>
+            
+            <div id="summary-section" class="hidden mb-8">
+                 <!-- Triggered Signals Section -->
+                <div id="triggered-signals-section" class="mb-8">
+                    <h3 class="text-2xl font-bold text-center text-green-400 mb-2">🏆 Triggered High-Probability Setups 🏆</h3>
+                    <div id="triggered-signals-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-gray-800/50 p-4 rounded-lg border border-gray-700 text-center md:col-span-3 placeholder-card">
+                            <p class="text-lg text-gray-400">Waiting for signals that meet all confluence criteria...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Technical Indicator Explanation -->
+                <div class="mt-6 bg-gray-800/50 rounded-lg border border-gray-700 p-4">
+                    <h4 class="font-semibold text-white text-lg mb-4">Strategy Explanation: Multi-Timeframe Confluence</h4>
+                    <div class="text-gray-300 space-y-4 border-t border-gray-700 pt-4">
+                        <div>
+                            <h5 class="font-bold text-indigo-400">Phase 1: Higher Timeframe Analysis (4-Hour)</h5>
+                            <p class="text-sm mt-1">Identifies the dominant trend direction. A coin must pass both checks to be considered.</p>
+                            <ul class="list-disc list-inside text-sm mt-2 space-y-1">
+                                <li><span class="text-green-400 font-bold">✓</span> Price is above the 50-period EMA.</li>
+                                <li><span class="text-green-400 font-bold">✓</span> RSI (14) is above 50, showing bullish bias.</li>
+                            </ul>
+                        </div>
+                         <div>
+                            <h5 class="font-bold text-indigo-400">Phase 2: Intermediate Setup (15-Minute)</h5>
+                            <p class="text-sm mt-1">Provides the primary trade setup and confirms momentum.</p>
+                            <ul class="list-disc list-inside text-sm mt-2 space-y-1">
+                                <li><span class="text-green-400 font-bold">✓</span> 9-EMA has crossed above the 21-EMA.</li>
+                                <li><span class="text-green-400 font-bold">✓</span> RSI (14) is above 30, exiting oversold territory.</li>
+                                <li><span class="text-green-400 font-bold">✓</span> Volume on the crossover candle is > 1.5x the 20-period average volume.</li>
+                            </ul>
+                        </div>
+                         <div>
+                            <h5 class="font-bold text-indigo-400">Phase 3: Precise Execution (5-Minute)</h5>
+                            <p class="text-sm mt-1">Offers the final confirmation for precise entry timing.</p>
+                            <ul class="list-disc list-inside text-sm mt-2 space-y-1">
+                                <li><span class="text-green-400 font-bold">✓</span> RSI (14) is above 50, confirming immediate momentum.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="results-table" class="hidden bg-gray-900 rounded-lg shadow-2xl overflow-hidden">
+                <div class="table-container">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800 sticky top-0 z-10">
+                            <tr>
+                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Coin</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Price</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">24h Change</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="Price > 50 EMA & RSI > 50">4h Trend</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="9/21 EMA Cross & RSI > 30">15m Setup</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="Latest Volume > 1.5x of 20-period Average">15m Volume</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="RSI > 50">5m Entry</th>
+                            </tr>
+                        </thead>
+                        <tbody id="coin-table-body" class="divide-y divide-gray-800">
+                            <!-- Coin data will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">Webhook Settings</h3>
+                <button id="close-settings-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div>
+                <label for="webhook-url-input" class="block text-sm font-medium text-gray-300 mb-2">Webhook URL</label>
+                <input type="url" id="webhook-url-input" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., https://www.growlonix.com/api/signal">
+                <p class="text-xs text-gray-500 mt-1">Sends a notification when a confluence signal is found.</p>
+            </div>
+            <div class="mt-4">
+                <label for="webhook-auth-input" class="block text-sm font-medium text-gray-300 mb-2">Growlonix Authentication Key</label>
+                <input type="password" id="webhook-auth-input" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter your secret key from Growlonix">
+                <p class="text-xs text-gray-500 mt-1">This will be sent as 'key' in the JSON payload.</p>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="test-webhook-btn" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors">Test</button>
+                <button id="save-settings-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification Modal -->
+    <div id="notification-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg m-4 border-t-4 border-indigo-500">
+           <div class="flex justify-between items-center mb-4">
+                <h3 id="notification-title" class="text-xl font-bold text-white">Notification</h3>
+                <button id="close-notification-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <div id="notification-content" class="text-gray-300"></div>
+        </div>
+    </div>
+
+    <!-- Log Modal Added Here -->
+    <div id="log-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl m-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">Triggered Signal Log</h3>
+                <button id="close-log-btn" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div id="log-content-container" class="table-container" style="max-height: 50vh;">
+                <!-- Log entries will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const API_BASE = 'https://api.binance.com/api/v3/';
+        const KLINE_ENDPOINT = 'klines';
+        const TICKER_ENDPOINT = 'ticker/24hr';
+        const EXCHANGE_INFO_ENDPOINT = 'exchangeInfo';
+
+        const greenTickSVG = `<svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>`;
+        const redCrossSVG = `<svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>`;
+
+        let coinScanResults = [];
+        let countdownInterval;
+        let triggeredThisCycle = {};
+        let top1000symbols = [];
+        let exchangeInfo = null;
+
+        // --- Helper Functions ---
+        function formatPrice(price) {
+            if (typeof price !== 'number' || isNaN(price)) return 'N/A';
+            if (price >= 10) return price.toFixed(2);
+            if (price >= 0.1) return price.toFixed(4);
+            if (price >= 0.001) return price.toFixed(6);
+            return price.toFixed(8);
+        }
+
+        // --- Technical Analysis Indicator Calculations ---
+        function calculateEMA(data, period) {
+            const k = 2 / (period + 1);
+            if (data.length < period) return Array(data.length).fill(null);
+            
+            let ema = data.slice(0, period).reduce((sum, val) => sum + val, 0) / period;
+            const emas = Array(period - 1).fill(null);
+            emas.push(ema);
+            for (let i = period; i < data.length; i++) {
+                ema = (data[i] * k) + (ema * (1 - k));
+                emas.push(ema);
+            }
+            return emas;
+        }
+
+        function calculateRSI(data, period = 14) {
+            if (data.length <= period) return Array(data.length).fill(null);
+
+            const rsi = Array(data.length).fill(null);
+            let gains = 0, losses = 0;
+
+            for (let i = 1; i <= period; i++) {
+                const change = data[i] - data[i - 1];
+                if (change > 0) gains += change;
+                else losses -= change;
+            }
+
+            let avgGain = gains / period;
+            let avgLoss = losses / period;
+
+            for (let i = period; i < data.length; i++) {
+                if (i > period) {
+                    const change = data[i] - data[i - 1];
+                    if (change > 0) {
+                        avgGain = (avgGain * (period - 1) + change) / period;
+                        avgLoss = (avgLoss * (period - 1)) / period;
+                    } else {
+                        avgGain = (avgGain * (period - 1)) / period;
+                        avgLoss = (avgLoss * (period - 1) - change) / period;
+                    }
+                }
+                if (avgLoss === 0) rsi[i] = 100;
+                else {
+                    const rs = avgGain / avgLoss;
+                    rsi[i] = 100 - (100 / (1 + rs));
+                }
+            }
+            return rsi;
+        }
+
+        // --- Strategy Logic ---
+        function analyzeConfluence(kline4h, kline15m, kline5m) {
+            if (kline4h.length < 51 || kline15m.length < 22 || kline5m.length < 15) {
+                return { signal: false, checks: {} };
+            }
+
+            // Data prep
+            const closes4h = kline4h.map(k => parseFloat(k[4]));
+            const closes15m = kline15m.map(k => parseFloat(k[4]));
+            const volumes15m = kline15m.map(k => parseFloat(k[5]));
+            const closes5m = kline5m.map(k => parseFloat(k[4]));
+            const idx = -1; // Index for the most recently closed candle
+
+            // Phase 1: 4-Hour Analysis
+            const ema50_4h = calculateEMA(closes4h, 50);
+            const rsi14_4h = calculateRSI(closes4h, 14);
+            const trendCheck = closes4h.at(idx) > ema50_4h.at(idx) && rsi14_4h.at(idx) > 50;
+
+            // Phase 2: 15-Minute Analysis
+            const ema9_15m = calculateEMA(closes15m, 9);
+            const ema21_15m = calculateEMA(closes15m, 21);
+            const rsi14_15m = calculateRSI(closes15m, 14);
+            const crossoverCheck = ema9_15m.at(idx) > ema21_15m.at(idx) && ema9_15m.at(idx-1) <= ema21_15m.at(idx-1);
+            const momentumCheck = rsi14_15m.at(idx) > 30;
+            const setupCheck = crossoverCheck && momentumCheck;
+
+            // Volume Check on 15m
+            const last20Vols = volumes15m.slice(-21, -1);
+            const avgVol = last20Vols.reduce((a, b) => a + b, 0) / 20;
+            const volumeCheck = volumes15m.at(idx) > (avgVol * 1.5);
+            
+            // Phase 3: 5-Minute Analysis
+            const rsi14_5m = calculateRSI(closes5m, 14);
+            const entryCheck = rsi14_5m.at(idx) > 50;
+
+            const checks = {
+                trend: trendCheck,
+                setup: setupCheck,
+                volume: volumeCheck,
+                entry: entryCheck
+            };
+            
+            const signal = trendCheck && setupCheck && volumeCheck && entryCheck;
+
+            return { signal, checks };
+        }
+
+        // --- Main Application Logic ---
+        async function fetchTopCoinsList() {
+             try {
+                if (!exchangeInfo) {
+                    exchangeInfo = await (await fetch(API_BASE + EXCHANGE_INFO_ENDPOINT)).json();
+                }
+                const allTickers = await (await fetch(API_BASE + TICKER_ENDPOINT)).json();
+
+                const usdtSymbols = exchangeInfo.symbols
+                    .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT' && s.isSpotTradingAllowed === true && !s.symbol.endsWith('UPUSDT') && !s.symbol.endsWith('DOWNUSDT'))
+                    .map(s => s.symbol);
+                
+                top1000symbols = allTickers
+                    .filter(t => usdtSymbols.includes(t.symbol))
+                    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume))
+                    .slice(0, 1000);
+
+             } catch (error) {
+                 console.error("Failed to update top coins list:", error);
+             }
+        }
+        
+        async function main() {
+            const loader = document.getElementById('loader');
+            const progressText = document.getElementById('progress-text');
+            const summarySection = document.getElementById('summary-section');
+            const resultsTable = document.getElementById('results-table');
+            
+            loader.classList.remove('hidden');
+            summarySection.classList.add('hidden');
+            resultsTable.classList.add('hidden');
+
+            // Reset UI elements for new scan
+            document.getElementById('coin-table-body').innerHTML = '';
+            coinScanResults = [];
+            triggeredThisCycle = {};
+
+            if (top1000symbols.length === 0) {
+                await fetchTopCoinsList();
+            }
+
+            let count = 0;
+            for (const ticker of top1000symbols) {
+                count++;
+                progressText.textContent = `Analyzing coin ${count} of 1000: ${ticker.symbol}...`;
+                try {
+                    // Fetch all 3 timeframes concurrently
+                    const [kline4hRes, kline15mRes, kline5mRes] = await Promise.all([
+                        fetch(`${API_BASE}${KLINE_ENDPOINT}?symbol=${ticker.symbol}&interval=4h&limit=200`),
+                        fetch(`${API_BASE}${KLINE_ENDPOINT}?symbol=${ticker.symbol}&interval=15m&limit=200`),
+                        fetch(`${API_BASE}${KLINE_ENDPOINT}?symbol=${ticker.symbol}&interval=5m&limit=200`)
+                    ]);
+
+                    if (!kline4hRes.ok || !kline15mRes.ok || !kline5mRes.ok) continue;
+
+                    const kline4h = await kline4hRes.json();
+                    const kline15m = await kline15mRes.json();
+                    const kline5m = await kline5mRes.json();
+
+                    // Use last closed candle for analysis
+                    const analysisResult = analyzeConfluence(
+                        kline4h.slice(0, -1),
+                        kline15m.slice(0, -1),
+                        kline5m.slice(0, -1)
+                    );
+
+                    const coinData = {
+                        symbol: ticker.symbol,
+                        price: parseFloat(ticker.lastPrice),
+                        change: parseFloat(ticker.priceChangePercent),
+                        signal: analysisResult.signal,
+                        checks: analysisResult.checks
+                    };
+
+                    coinScanResults.push(coinData);
+
+                    if (analysisResult.signal) {
+                        handleTrigger(coinData);
+                    }
+
+                } catch (e) {
+                    console.error(`Failed to process ${ticker.symbol}:`, e);
+                }
+            }
+            
+            loader.classList.add('hidden');
+            summarySection.classList.remove('hidden');
+            resultsTable.classList.remove('hidden');
+            updateUI();
+        }
+        
+        function updateUI() {
+            const tableBody = document.getElementById('coin-table-body');
+            const triggeredCoins = coinScanResults.filter(c => c.signal);
+
+            if (triggeredCoins.length === 0) {
+                 tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-400">No coins currently meet the confluence criteria.</td></tr>`;
+                 return;
+            }
+
+            tableBody.innerHTML = triggeredCoins.map((coin) => {
+                const priceChangeColor = coin.change >= 0 ? 'text-green-400' : 'text-red-400';
+                
+                return `
+                    <tr>
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">${coin.symbol.replace('USDT', '')}</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">$${formatPrice(coin.price)}</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm ${priceChangeColor}">${coin.change.toFixed(2)}%</td>
+                        <td class="px-3 py-4 text-sm">${coin.checks.trend ? greenTickSVG : redCrossSVG}</td>
+                        <td class="px-3 py-4 text-sm">${coin.checks.setup ? greenTickSVG : redCrossSVG}</td>
+                        <td class="px-3 py-4 text-sm">${coin.checks.volume ? greenTickSVG : redCrossSVG}</td>
+                        <td class="px-3 py-4 text-sm">${coin.checks.entry ? greenTickSVG : redCrossSVG}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function handleTrigger(coin) {
+            if (triggeredThisCycle[coin.symbol]) return;
+            triggeredThisCycle[coin.symbol] = true;
+
+            console.log(`TRIGGER: Confluence signal found for ${coin.symbol}`);
+            
+            const finalTriggersContainer = document.getElementById('triggered-signals-container');
+            const placeholder = finalTriggersContainer.querySelector('.placeholder-card');
+            if (placeholder) placeholder.remove();
+
+            const triggeredCard = document.createElement('div');
+            triggeredCard.className = "bg-gray-800 p-4 rounded-lg border-2 border-green-400 shadow-lg text-center triggered-card";
+            triggeredCard.dataset.symbol = coin.symbol;
+            triggeredCard.innerHTML = `
+                <h4 class="text-2xl font-bold text-white">${coin.symbol.replace('USDT', '')}</h4>
+                <p class="text-sm text-green-400 mt-1">✅ Full Confluence Trigger at ${new Date().toLocaleTimeString()}</p>
+            `;
+            finalTriggersContainer.appendChild(triggeredCard);
+
+            updateTriggerLog(coin);
+            
+            const payload = {
+                key: localStorage.getItem('webhookAuth') || 'YOUR_SECRET_API_KEY',
+                exchange_name: "binance",
+                market: coin.symbol.replace('USDT', '/USDT'),
+                action: "create",
+                algorithm: "crypto_ranker_v11_mtf_confluence",
+                clientSignalId: `${coin.symbol}_${new Date().getTime()}`,
+                comment: `Multi-Timeframe Confluence Signal: ${coin.symbol} (4h Trend, 15m Setup/Vol, 5m Entry)`
+            };
+            sendToWebhook(payload);
+        }
+        
+        function updateTriggerLog(coin) {
+            let log = JSON.parse(localStorage.getItem('triggerLog')) || [];
+            const logEntry = {
+                symbol: coin.symbol,
+                timestamp: new Date().toISOString()
+            };
+            log.unshift(logEntry); 
+            localStorage.setItem('triggerLog', JSON.stringify(log));
+        }
+
+        function displayLog() {
+            const logContainer = document.getElementById('log-content-container');
+            const logModal = document.getElementById('log-modal');
+            const log = JSON.parse(localStorage.getItem('triggerLog')) || [];
+
+            if (log.length === 0) {
+                logContainer.innerHTML = `<p class="text-gray-400 text-center">No signals have been triggered yet.</p>`;
+            } else {
+                let tableHtml = `
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800 sticky top-0">
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Coin</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Date & Time Triggered</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800">
+                            ${log.map(entry => `
+                                <tr>
+                                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">${entry.symbol.replace('USDT', '')}</td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">${new Date(entry.timestamp).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                logContainer.innerHTML = tableHtml;
+            }
+            logModal.classList.remove('hidden');
+        }
+
+        async function sendToWebhook(data, isTest = false) {
+            let webhookUrl = localStorage.getItem('webhookUrl');
+            if (!webhookUrl) {
+                if (isTest) showNotification('Error', 'Webhook URL is not saved. Please save it in settings.');
+                return;
+            }
+            if (webhookUrl && !webhookUrl.startsWith('http://') && !webhookUrl.startsWith('https://')) {
+                webhookUrl = 'https://' + webhookUrl;
+            }
+
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+
+                if (isTest) {
+                    if (response.ok) {
+                        showNotification('Success', 'Test data sent to webhook successfully!');
+                    } else {
+                        const errorData = await response.json();
+                        showNotification('Error', `Failed to send test data. Status: ${response.status}. Message: ${errorData.msg || 'No message'}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error sending to webhook:', error);
+                if (isTest) showNotification('Error', 'An error occurred while sending the test request. Check the console for details.');
+            }
+        }
+        
+        function showNotification(title, message) {
+            const modal = document.getElementById('notification-modal');
+            const titleEl = document.getElementById('notification-title');
+            const contentEl = document.getElementById('notification-content');
+            
+            titleEl.textContent = title;
+            contentEl.innerHTML = `<p>${message}</p>`;
+            modal.classList.remove('hidden');
+        }
+
+        // --- Event Listeners & Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const closeSettingsBtn = document.getElementById('close-settings-btn');
+            const saveSettingsBtn = document.getElementById('save-settings-btn');
+            const testWebhookBtn = document.getElementById('test-webhook-btn');
+            const webhookUrlInput = document.getElementById('webhook-url-input');
+            const webhookAuthInput = document.getElementById('webhook-auth-input');
+            const notificationModal = document.getElementById('notification-modal');
+            const closeNotificationBtn = document.getElementById('close-notification-btn');
+
+            const logBtn = document.getElementById('log-btn');
+            const logModal = document.getElementById('log-modal');
+            const closeLogBtn = document.getElementById('close-log-btn');
+            
+            webhookUrlInput.value = localStorage.getItem('webhookUrl') || '';
+            webhookAuthInput.value = localStorage.getItem('webhookAuth') || '';
+
+            function scheduleNextUpdate() {
+                if (countdownInterval) clearInterval(countdownInterval);
+                
+                const now = new Date();
+                const minutes = now.getMinutes();
+                const seconds = now.getSeconds();
+                
+                const remainingMinutes = 4 - (minutes % 5);
+                const remainingSeconds = 60 - seconds;
+                
+                let timeToUpdate = (remainingMinutes * 60 + remainingSeconds) * 1000;
+                if (minutes % 5 === 4 && seconds > 0) { // If in the last minute of a cycle
+                    timeToUpdate = ((4 - (minutes % 5)) * 60 + (60 - seconds)) * 1000;
+                } else {
+                    timeToUpdate = ((4 - (minutes % 5)) * 60 + (60-seconds)) * 1000;
+                    if(minutes%5 === 0 && seconds === 0) timeToUpdate = 5 * 60 * 1000;
+                }
+                
+                setTimeout(() => {
+                    main();
+                    setInterval(main, 5 * 60 * 1000); 
+                }, timeToUpdate);
+
+                const countdownElement = document.getElementById('countdown');
+                let countdownTime = timeToUpdate / 1000;
+
+                countdownInterval = setInterval(() => {
+                    countdownTime--;
+                    if (countdownTime <= 0) {
+                        countdownElement.textContent = 'Updating...';
+                        clearInterval(countdownInterval);
+                        return;
+                    }
+                    const mins = Math.floor(countdownTime / 60);
+                    const secs = Math.floor(countdownTime % 60);
+                    countdownElement.textContent = `Next scan in: ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }, 1000);
+            }
+            
+            settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+            closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+            saveSettingsBtn.addEventListener('click', () => {
+                localStorage.setItem('webhookUrl', webhookUrlInput.value);
+                localStorage.setItem('webhookAuth', webhookAuthInput.value);
+                showNotification('Success', 'Webhook settings saved!');
+                settingsModal.classList.add('hidden');
+            });
+            closeNotificationBtn.addEventListener('click', () => notificationModal.classList.add('hidden'));
+            
+            testWebhookBtn.addEventListener('click', () => {
+                const testData = {
+                    key: webhookAuthInput.value || 'YOUR_SECRET_API_KEY',
+                    exchange_name: "binance", market: "USDT/TEST", action: "create",
+                    algorithm: "test_signal", clientSignalId: "test_" + Date.now(),
+                    comment: "Test webhook from Crypto Strategy Ranker"
+                };
+                sendToWebhook(testData, true);
+            });
+
+            logBtn.addEventListener('click', displayLog);
+            closeLogBtn.addEventListener('click', () => logModal.classList.add('hidden'));
+
+            main(); // Initial run
+            scheduleNextUpdate();
+            setInterval(fetchTopCoinsList, 60 * 60 * 1000); // Update top coins list every hour
+        });
+    </script>
+</body>
+</html>
+
+
