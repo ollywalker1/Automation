@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Strategy Ranker - Intraday Scalping v4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 280px; 
+            background-color: #1f2937;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 50; 
+            bottom: 125%;
+            left: 50%;
+            margin-left: -140px; /* Centered */
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid #374151;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.8rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #374151 transparent transparent transparent;
+        }
+        .table-container {
+            max-height: 70vh; /* Adjusted height */
+            overflow: auto;
+        }
+        /* Custom scrollbar for webkit browsers */
+        .table-container::-webkit-scrollbar, #log-content-container::-webkit-scrollbar, #inbox-content-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track, #log-content-container::-webkit-scrollbar-track, #inbox-content-container::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        .table-container::-webkit-scrollbar-thumb, #log-content-container::-webkit-scrollbar-thumb, #inbox-content-container::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 10px;
+            border: 2px solid #1f2937;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        details summary:after {
+            content: '+';
+            float: right;
+            font-size: 1.5em;
+            line-height: 0.5;
+            margin-top: -4px;
+        }
+        details[open] summary:after {
+            content: '-';
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="toast-container" class="fixed top-4 right-4 z-[101] space-y-2 w-full max-w-sm"></div>
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-6 relative">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">Intraday Scalping Strategy</h1>
+            <p id="subtitle" class="text-lg text-gray-400">High-Probability Scalping Using Confluence and Order Book Analysis</p>
+            <div id="countdown" class="text-sm text-indigo-400 mt-2"></div>
+                        <div class="mt-4 flex justify-center items-center space-x-4">
+                                <button id="log-btn" class="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors">Trade Log</button>
+                                <button id="inbox-btn" class="relative px-5 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors">
+                                    Inbox
+                                    <span id="inbox-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden">0</span>
+                                </button>
+                        </div>
+                        <!-- NEW API Status Indicator -->
+                        <div id="api-status-indicator" class="mt-4 flex justify-center items-center space-x-2 text-sm text-gray-400">
+                            <!-- Status will be injected by JavaScript -->
+                        </div>
+            <button id="settings-btn" class="absolute top-0 right-0 p-2 text-gray-400 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-settings"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </header>
+
+        <main id="app-container">
+            <div id="loader" class="text-center py-20">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-500 mx-auto"></div>
+                <p class="mt-4 text-lg text-gray-300">Performing initial 15-minute scan...</p>
+                <p id="progress-text" class="text-sm text-gray-500">Initializing...</p>
+            </div>
+            
+            <div id="active-trade-dashboard" class="hidden mb-6 bg-gray-800/50 rounded-lg p-4 shadow-lg">
+                <h3 id="dashboard-title" class="text-xl font-bold mb-3 border-b border-gray-700 pb-2"></h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                    <div>
+                        <span class="text-lg text-gray-400 block">Coin</span>
+                        <span id="active-trade-symbol" class="text-2xl font-bold text-white">--</span>
+                    </div>
+                    <div>
+                        <span class="text-lg text-gray-400 block">Live P/L</span>
+                        <span id="active-trade-pl" class="text-2xl font-bold">--</span>
+                    </div>
+                    <div>
+                        <span class="text-lg text-gray-400 block">Stop Buffer</span>
+                        <span id="active-trade-buffer" class="text-2xl font-bold">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="summary-section" class="hidden mb-8">
+                <!-- STRATEGY EXPLANATION UPDATED -->
+                <div class="mt-6">
+                    <details class="bg-gray-800/50 rounded-lg border border-gray-700 p-4 transition-all duration-300">
+                        <summary class="font-semibold text-white cursor-pointer text-lg">
+                            Strategy Explanation: Intraday Scalping V3
+                        </summary>
+                        <div class="mt-4 text-gray-300 space-y-6 border-t border-gray-700 pt-4">
+                            <!-- Core Philosophy -->
+                            <div>
+                                <h3 class="text-xl font-bold text-white mb-2">Core Philosophy</h3>
+                                <p class="text-sm">This strategy is designed for **scalping**—capitalizing on short-term intraday volatility. Success relies on finding **confluence**, where multiple technical indicators and real-time order book data align to signal a high-probability entry with a favorable risk-to-reward ratio.</p>
+                            </div>
+                            <!-- Phase 1 -->
+                            <div class="border-t border-gray-700 pt-4">
+                                <h3 class="text-xl font-bold text-white mb-2">Phase 1: Finding Potential Setups (Every 15 Minutes)</h3>
+                                <ul class="list-disc list-inside text-sm mt-2 space-y-2">
+                                    <li><strong>Broad Market Scan:</strong> The system scans the top 1000 Binance altcoins by volume.</li>
+                                    <li><strong>Setup Filtering (Confluence):</strong> It identifies coins showing early reversal signs by looking for four key conditions:
+                                        <ol class="list-decimal list-inside pl-4 mt-1">
+                                            <li>The price is near, or has just bounced off, the **55 EMA** on the **15-minute chart**.</li>
+                                            <li>The price is also testing a key **Fibonacci retracement level** (0.5, 0.618, or 0.786) from the last major 15m swing.</li>
+                                            <li>A classic **bullish RSI divergence** is present. If found on the 1m or 5m chart, the 15m RSI must be below 50.</li>
+                                            <li>The coin shows sufficient volatility, with a **15-minute ATR of at least 0.5%** of its price.</li>
+                                        </ol>
+                                    </li>
+                                    <li><strong>Create Watchlist:</strong> Coins meeting all four criteria are added to a watchlist for continuous, real-time monitoring.</li>
+                                </ul>
+                            </div>
+                            <!-- Phase 2 -->
+                            <div class="border-t border-gray-700 pt-4">
+                                <h3 class="text-xl font-bold text-white mb-2">Phase 2: The Buy Trigger (Multi-Layered Confirmation)</h3>
+                                <ul class="list-disc list-inside text-sm mt-2 space-y-2">
+                                    <li><strong>Real-time Monitoring:</strong> The system scans every coin on the watchlist (every minute) for a final three-part buy trigger:
+                                        <ol class="list-decimal list-inside pl-4 mt-1">
+                                            <li><strong>Momentum Gauge:</strong> The **MACD histogram** must show increasing momentum (a "tick up") on the **3m or 5m chart**.</li>
+                                            <li><strong>Price Action:</strong> The most recent candle must show strong **rejection to the downside** (e.g., a long lower wick) on the **1m or 3m chart**.</li>
+                                            <li><strong>Order Book Filter:</strong> A sudden surge in buy-side pressure is observed (total bid volume > 2x total ask volume).</li>
+                                        </ol>
+                                    </li>
+                                    <li><strong>Execute Trade:</strong> When all three trigger conditions are met, a buy signal is sent. Only one trade can be active at a time.</li>
+                                </ul>
+                            </div>
+                            <!-- Phase 3 -->
+                            <div class="border-t border-gray-700 pt-4">
+                                <h3 class="text-xl font-bold text-white mb-2">Phase 3: Exiting the Trade (Dynamic & Real-Time)</h3>
+                                <ul class="list-disc list-inside text-sm mt-2 space-y-2">
+                                    <li><strong>Activate Sell Monitoring:</strong> Once a trade is active, it's monitored in real-time for an exit signal.</li>
+                                    <li><strong>Send Sell Signal:</strong> A "close" signal is sent as soon as **one** of the following exit conditions is met (whichever comes first):
+                                        <ol class="list-decimal list-inside pl-4 mt-1">
+                                            <li>The **Take-Profit** target (set to a minimum 2:1 Risk/Reward ratio) is hit.</li>
+                                            <li>The **Trailing Stop-Loss** (based on ATR and peak price) is triggered.</li>
+                                            <li>If the trade is in profit, a **15m MACD downtick** occurs, signaling momentum exhaustion.</li>
+                                            <li>The hard **Stop-Loss** (initial risk level) is hit.</li>
+                                            <li>A large **"sell wall"** appears in the order book.</li>
+                                            <li>The price closes **below the 55 EMA** on the 15-minute chart.</li>
+                                        </ol>
+                                    </li>
+                                    <li><strong>Log and Reset:</strong> The trade is logged, and the system returns to scanning for the next setup.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <div id="results-table" class="hidden bg-gray-900 rounded-lg shadow-2xl overflow-hidden">
+                <div class="table-container">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800 sticky top-0 z-10">
+                            <tr>
+                                <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Coin</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Price</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">24h Change</th>
+                                <!-- TOOLTIP UPDATED -->
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white" title="Coin must show a bullish setup (RSI Divergence + EMA Bounce + Fib Support) AND have a 15m ATR of at least 0.5% of its price.">Initial Setup</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                                <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="coin-table-body" class="divide-y divide-gray-800">
+                            <!-- Coin data will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg m-4 overflow-y-auto" style="max-height: 90vh;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">Settings</h3>
+                <button id="close-settings-btn" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div class="space-y-6">
+                 <!-- Advanced Settings -->
+                <div>
+                    <h4 class="text-lg font-semibold text-purple-400 mb-3 border-b border-gray-700 pb-2">Advanced Settings</h4>
+                    <div class="space-y-3">
+                        <div class="flex items-center">
+                            <input id="testnet-enabled" type="checkbox" class="h-4 w-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500">
+                            <label for="testnet-enabled" class="ml-2 block text-sm text-gray-300">Use Binance Testnet</label>
+                        </div>
+                        <!-- NEW TSL DEFAULT SETTING -->
+                        <div class="flex items-center">
+                            <input id="tsl-enabled-default" type="checkbox" class="h-4 w-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500" checked>
+                            <label for="tsl-enabled-default" class="ml-2 block text-sm text-gray-300">Enable Trailing Stop-Loss by Default</label>
+                        </div>
+                    </div>
+                     <p class="text-xs text-gray-500 mt-2">Changes to default TSL will apply to new trades only.</p>
+                </div>
+                <!-- Exclusion List -->
+                <div>
+                    <h4 class="text-lg font-semibold text-yellow-400 mb-3 border-b border-gray-700 pb-2">Exclusion List</h4>
+                    <label for="exclusion-list-input" class="block text-sm font-medium text-gray-300 mb-2">Excluded Symbols</label>
+                    <textarea id="exclusion-list-input" rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:ring-yellow-500 focus:border-yellow-500" placeholder="e.g., XMRUSDT, ZECUSDT, LUNAUSDT"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Enter comma-separated symbols to exclude from all scans.</p>
+                </div>
+                <!-- Webhook Settings -->
+                <div>
+                    <h4 class="text-lg font-semibold text-teal-400 mb-3 border-b border-gray-700 pb-2">Webhook Settings</h4>
+                    <div>
+                        <label for="webhook-url-input" class="block text-sm font-medium text-gray-300 mb-2">Webhook URL</label>
+                        <input type="url" id="webhook-url-input" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:ring-teal-500 focus:border-teal-500" placeholder="e.g., https://www.your-service.com/webhook">
+                    </div>
+                    <div class="mt-4">
+                        <label for="webhook-auth-input" class="block text-sm font-medium text-gray-300 mb-2">Authentication Key</label>
+                        <input type="password" id="webhook-auth-input" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white placeholder-gray-400 focus:ring-teal-500 focus:border-teal-500" placeholder="Enter secret key for webhook signals">
+                    </div>
+                    <div class="mt-3 flex justify-end">
+                        <button id="test-webhook-btn" class="px-3 py-1 bg-gray-600 text-white text-xs rounded-md hover:bg-gray-500">Test Webhook</button>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end">
+                <button id="save-settings-btn" class="px-5 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 transition-colors">Save All Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Modal -->
+    <div id="log-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-full m-4 xl:max-w-7xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">Trade History & Management</h3>
+                <div>
+                    <button id="clear-log-btn" class="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-500 mr-4">Clear Log</button>
+                    <button id="close-log-btn" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+            </div>
+            <div id="log-content-container" class="table-container" style="max-height: 70vh;">
+                <!-- Log entries will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Inbox Modal -->
+    <div id="inbox-modal" class="modal-overlay hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl m-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-white">Notification Inbox</h3>
+                 <div>
+                    <button id="clear-inbox-btn" class="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-500 mr-4">Clear Inbox</button>
+                    <button id="close-inbox-btn" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+            </div>
+            <div id="inbox-content-container" class="space-y-3" style="max-height: 70vh; overflow-y: auto;">
+                <!-- Notifications will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const CONFIG = {
+            prod: {
+                apiBase: 'https://api.binance.com/api/v3/',
+                wsBase: 'wss://stream.binance.com/ws/'
+            },
+            testnet: {
+                apiBase: 'https://testnet.binance.vision/api/v3/',
+                wsBase: 'wss://testnet.binance.vision/ws/'
+            }
+        };
+        let currentApiConfig = CONFIG.prod;
+
+        // --- Global State ---
+        let tradeLog = []; 
+        let notifications = [];
+        let activeTrades = [];
+        let watchedCoins = []; 
+        let triggeredSymbols = new Set();
+        let setupScanCountdown, triggerScanInterval, stateSaveInterval, htfScanCountdown, tradeMonitorTimeout;
+        let activeTradeSocket = null;
+        let isSocketIntentionallyClosed = false;
+
+        // --- Constants ---
+        const KLINE_ENDPOINT = 'klines';
+        const TICKER_ENDPOINT = 'ticker/24hr';
+        const PRICE_TICKER_ENDPOINT = 'ticker/price';
+        const EXCHANGE_INFO_ENDPOINT = 'exchangeInfo';
+        const DEPTH_ENDPOINT = 'depth'; 
+        const greenTickSVG = `<svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>`;
+        
+        // --- Helper & Utility Functions ---
+        // NEW API STATUS FUNCTION
+        async function checkApiStatus() {
+            const statusIndicator = document.getElementById('api-status-indicator');
+            try {
+                const response = await fetch(`${currentApiConfig.apiBase}ping`);
+                if (response.ok) {
+                    statusIndicator.innerHTML = `
+                        <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"></circle></svg>
+                        <span>API Status: OK</span>
+                    `;
+                } else {
+                    throw new Error(`Status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error("API status check failed:", error);
+                statusIndicator.innerHTML = `
+                    <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"></circle></svg>
+                    <span class="text-red-400">API Status: Unreachable</span>
+                `;
+            }
+        }
+
+        function formatPrice(price) {
+            if (typeof price !== 'number' || isNaN(price)) return 'N/A';
+            if (price >= 10) return price.toFixed(2);
+            if (price >= 0.1) return price.toFixed(4);
+            if (price >= 0.001) return price.toFixed(6);
+            return price.toFixed(8);
+        }
+
+        function getLocalStorage(key, defaultValue) {
+            try {
+                const storedValue = localStorage.getItem(key);
+                return storedValue ? JSON.parse(storedValue) : defaultValue;
+            } catch (error) { console.error(`Error reading from localStorage for key "${key}":`, error); return defaultValue; }
+        }
+
+        function setLocalStorage(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (error) { console.error(`Error writing to localStorage for key "${key}":`, error); }
+        }
+
+        function updateApiConfig() {
+            const useTestnet = getLocalStorage('useTestnet', false);
+            currentApiConfig = useTestnet ? CONFIG.testnet : CONFIG.prod;
+            console.log(`API endpoint set to: ${currentApiConfig.apiBase}`);
+        }
+
+        // --- Centralized State Management ---
+        function updateAndPersistLog() {
+            setLocalStorage('tradeLog', tradeLog);
+            activeTrades = tradeLog.filter(t => t.status === 'active' || t.status === 'awaiting-reentry');
+            
+            updateActiveTradeDashboard();
+            
+            if (activeTrades.length === 0) {
+                if (tradeMonitorTimeout) {
+                    clearTimeout(tradeMonitorTimeout);
+                    tradeMonitorTimeout = null;
+                }
+                if (stateSaveInterval) {
+                    clearInterval(stateSaveInterval);
+                    stateSaveInterval = null;
+                }
+                if (activeTradeSocket) {
+                    isSocketIntentionallyClosed = true;
+                    activeTradeSocket.close();
+                    activeTradeSocket = null;
+                }
+                console.log("All trades closed. Stopping monitor, state saver, and WebSocket.");
+            }
+        }
+
+        function getLiveTrade() {
+            return tradeLog.find(t => t.status === 'active' || t.status === 'awaiting-reentry');
+        }
+
+        // --- Technical Analysis Indicator Calculations ---
+        function calculateEMA(data, period) {
+            const k = 2 / (period + 1);
+            if (data.length < period) return Array(data.length).fill(null);
+            
+            let ema = data.slice(0, period).reduce((sum, val) => sum + val, 0) / period;
+            const emas = Array(period - 1).fill(null);
+            emas.push(ema);
+            for (let i = period; i < data.length; i++) {
+                ema = (data[i] * k) + (ema * (1 - k));
+                emas.push(ema);
+            }
+            return emas;
+        }
+        
+        function calculateMACD(data, shortPeriod = 12, longPeriod = 26, signalPeriod = 9) {
+            if (data.length < longPeriod + signalPeriod) return { macd: [], signal: [], histogram: [] };
+            
+            const emaShort = calculateEMA(data, shortPeriod);
+            const emaLong = calculateEMA(data, longPeriod);
+            const macdLine = emaShort.map((val, i) => (val !== null && emaLong[i] !== null) ? val - emaLong[i] : null);
+            const validMacdSegment = macdLine.filter(val => val !== null);
+            if (validMacdSegment.length < signalPeriod) return { macd: macdLine, signal: [], histogram: [] };
+            const signalLineSegment = calculateEMA(validMacdSegment, signalPeriod);
+            const signalLine = Array(macdLine.length - signalLineSegment.length).fill(null).concat(signalLineSegment);
+            const histogram = macdLine.map((val, i) => (val !== null && signalLine[i] !== null) ? val - signalLine[i] : null);
+            return { macd: macdLine, signal: signalLine, histogram };
+        }
+
+        function calculateRSI(data, period = 14) {
+            if (data.length <= period) return Array(data.length).fill(null);
+            const rsi = Array(data.length).fill(null);
+            let gains = 0, losses = 0;
+            for (let i = 1; i <= period; i++) {
+                const change = data[i] - data[i - 1];
+                if (change > 0) gains += change;
+                else losses -= change;
+            }
+            let avgGain = gains / period;
+            let avgLoss = losses / period;
+            for (let i = period; i < data.length; i++) {
+                if (i > period) {
+                    const change = data[i] - data[i - 1];
+                    avgGain = (avgGain * (period - 1) + (change > 0 ? change : 0)) / period;
+                    avgLoss = (avgLoss * (period - 1) + (change < 0 ? -change : 0)) / period;
+                }
+                rsi[i] = avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss)));
+            }
+            return rsi;
+        }
+
+        function calculateATR(klines, period = 14) {
+            if (klines.length < period + 1) return null;
+            let trueRanges = [];
+            for (let i = 1; i < klines.length; i++) {
+                const high = parseFloat(klines[i][2]);
+                const low = parseFloat(klines[i][3]);
+                const prevClose = parseFloat(klines[i - 1][4]);
+                trueRanges.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+            }
+            if (trueRanges.length < period) return null;
+            let atr = trueRanges.slice(0, period).reduce((sum, val) => sum + val, 0) / period;
+            for (let i = period; i < trueRanges.length; i++) {
+                atr = (atr * (period - 1) + trueRanges[i]) / period;
+            }
+            return atr;
+        }
+
+        // --- NEW ENHANCEMENT 2: Fibonacci Calculation ---
+        function calculateFibonacciRetracement(klines) {
+            if (klines.length < 2) return null;
+            const highs = klines.map(k => parseFloat(k[2]));
+            const lows = klines.map(k => parseFloat(k[3]));
+
+            const swingHigh = Math.max(...highs);
+            const swingLow = Math.min(...lows);
+            const range = swingHigh - swingLow;
+
+            if (range === 0) return null;
+
+            return {
+                level_0_5: swingHigh - range * 0.5,
+                level_0_618: swingHigh - range * 0.618,
+                level_0_786: swingHigh - range * 0.786
+            };
+        }
+        
+        // --- Strategy Logic (Buy, Sell, and Ranking) ---
+
+        function findRsiBullishDivergence(klines, lookback = 30) {
+            const lows = klines.map(k => parseFloat(k[3]));
+            const closes = klines.map(k => parseFloat(k[4]));
+            const rsi = calculateRSI(closes, 14);
+            if (closes.length < lookback) return null;
+            for (let i = closes.length - 2; i > closes.length - lookback; i--) {
+                const recentLowPrice = lows[i];
+                const recentRsi = rsi[i];
+                if (recentRsi > 40) continue; 
+                for (let j = i - 1; j > closes.length - lookback; j--) {
+                    const prevLowPrice = lows[j];
+                    const prevRsi = rsi[j];
+                    const isDivergence = recentLowPrice < prevLowPrice && recentRsi > prevRsi;
+                    const isOversold = prevRsi < 35 || recentRsi < 35;
+                    if (isDivergence && isOversold) return { low1: { price: prevLowPrice, rsi: prevRsi }, low2: { price: recentLowPrice, rsi: recentRsi } }; 
+                }
+            }
+            return null;
+        }
+
+        function findRejectionPattern(lastCandle) {
+            if (!lastCandle) return false;
+            const [open, high, low, close] = lastCandle.slice(1, 5).map(parseFloat);
+            const isBullish = close > open;
+            if (!isBullish) return false;
+
+            const body = close - open;
+            const range = high - low;
+            const lowerWick = open - low;
+            
+            return range > 0 && lowerWick > body * 1.5 && body < range * 0.4;
+        }
+        
+        async function checkOrderBookPressure(symbol) {
+            try {
+                const response = await fetch(`${currentApiConfig.apiBase}${DEPTH_ENDPOINT}?symbol=${symbol}&limit=20`);
+                const data = await response.json();
+                if (!data.bids || !data.asks) return false;
+
+                const totalBidVolume = data.bids.reduce((sum, bid) => sum + (parseFloat(bid[0]) * parseFloat(bid[1])), 0);
+                const totalAskVolume = data.asks.reduce((sum, ask) => sum + (parseFloat(ask[0]) * parseFloat(ask[1])), 0);
+                
+                return totalBidVolume > totalAskVolume * 2;
+            } catch (e) {
+                console.error(`Failed order book check for ${symbol}:`, e);
+                return false;
+            }
+        }
+
+        async function checkOrderBookForSellPressure(symbol) {
+            try {
+                const response = await fetch(`${currentApiConfig.apiBase}${DEPTH_ENDPOINT}?symbol=${symbol}&limit=20`);
+                const data = await response.json();
+                if (!data.bids || !data.asks) return false;
+
+                const totalBidVolume = data.bids.reduce((sum, bid) => sum + (parseFloat(bid[0]) * parseFloat(bid[1])), 0);
+                const totalAskVolume = data.asks.reduce((sum, ask) => sum + (parseFloat(ask[0]) * parseFloat(ask[1])), 0);
+
+                return totalAskVolume > totalBidVolume * 3;
+            } catch (e) {
+                console.error(`Failed order book sell pressure check for ${symbol}:`, e);
+                return false;
+            }
+        }
+
+        async function checkForScalpTrigger(symbol) {
+            if (triggeredSymbols.has(symbol)) return;
+            // Prevent multiple triggers in the same scan cycle
+            if (getLiveTrade()) return;
+
+            try {
+                const [klines5m, klines3m, klines1m] = await Promise.all([
+                    fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${symbol}&interval=5m&limit=50`).then(res => res.json()),
+                    fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${symbol}&interval=3m&limit=50`).then(res => res.json()),
+                    fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${symbol}&interval=1m&limit=2`).then(res => res.json())
+                ]);
+
+                if (!klines5m || klines5m.length < 40 || !klines3m || klines3m.length < 40 || !klines1m || klines1m.length < 2) return;
+
+                const hasMacdConfirmation = (() => {
+                    const closes5m = klines5m.map(k => parseFloat(k[4]));
+                    const macd5m = calculateMACD(closes5m);
+                    if (macd5m.histogram.length >= 2 && macd5m.histogram.at(-1) > macd5m.histogram.at(-2)) return true;
+                    
+                    const closes3m = klines3m.map(k => parseFloat(k[4]));
+                    const macd3m = calculateMACD(closes3m);
+                    if (macd3m.histogram.length >= 2 && macd3m.histogram.at(-1) > macd3m.histogram.at(-2)) return true;
+
+                    return false;
+                })();
+                if (!hasMacdConfirmation) return;
+
+                const hasCandleConfirmation = findRejectionPattern(klines1m.at(-1)) || findRejectionPattern(klines3m.at(-1));
+                if (!hasCandleConfirmation) return;
+
+                const hasOrderBookPressure = await checkOrderBookPressure(symbol);
+                if (!hasOrderBookPressure) return;
+                
+                // Final check to ensure a trade hasn't been triggered by another async check
+                if (getLiveTrade()) {
+                    console.log(`Candidate ${symbol} was valid, but a trade was already activated. Ignoring.`);
+                    return; 
+                }
+                
+                showNotification("Trade Signal Found!", `${symbol} meets all criteria. Triggering trade webhook.`, 'success');
+                await handleBuyTrigger(symbol);
+
+            } catch (e) {
+                console.error(`Failed trigger check for ${symbol}:`, e);
+            }
+        }
+        
+        // --- Main Application Logic & Workflow ---
+        
+        async function runSetupScan() {
+            // If there's an active trade, skip this entire function.
+            if (getLiveTrade()) {
+                console.log("An active trade is in progress. Skipping the 15-minute setup scan.");
+                return; // Stop the function from executing further.
+            }
+
+            const loader = document.getElementById('loader');
+            const progressText = document.getElementById('progress-text');
+            const summarySection = document.getElementById('summary-section');
+            const resultsTable = document.getElementById('results-table');
+            const tableBody = document.getElementById('coin-table-body');
+
+            watchedCoins = [];
+            triggeredSymbols.clear();
+            tableBody.innerHTML = '';
+            if (triggerScanInterval) clearInterval(triggerScanInterval);
+
+            loader.classList.remove('hidden');
+            summarySection.classList.add('hidden');
+            resultsTable.classList.add('hidden');
+            updateActiveTradeDashboard();
+
+            try {
+                progressText.textContent = 'Fetching all Binance symbols...';
+                const exchangeInfo = await (await fetch(`${currentApiConfig.apiBase}${EXCHANGE_INFO_ENDPOINT}`)).json();
+                const allTickers = await (await fetch(`${currentApiConfig.apiBase}${TICKER_ENDPOINT}`)).json();
+                const usdtSymbols = exchangeInfo.symbols
+                    .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT' && s.isSpotTradingAllowed === true && !s.symbol.endsWith('UPUSDT') && !s.symbol.endsWith('DOWNUSDT'))
+                    .map(s => s.symbol);
+                const top1000 = allTickers.filter(t => usdtSymbols.includes(t.symbol))
+                    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume)).slice(0, 1000);
+
+                const exclusionList = getLocalStorage('exclusionList', []);
+                const filteredTop1000 = top1000.filter(ticker => !exclusionList.includes(ticker.symbol));
+                progressText.textContent = `Found ${filteredTop1000.length} tradable coins. Beginning setup analysis...`;
+
+                let count = 0;
+                for (const ticker of filteredTop1000) {
+                    count++;
+                    progressText.textContent = `Analyzing coin ${count} of ${filteredTop1000.length}: ${ticker.symbol}...`;
+                    try {
+                        const [klines15m, klines5m, klines1m] = await Promise.all([
+                            fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${ticker.symbol}&interval=15m&limit=100`).then(res => res.json()),
+                            fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${ticker.symbol}&interval=5m&limit=100`).then(res => res.json()),
+                            fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${ticker.symbol}&interval=1m&limit=100`).then(res => res.json())
+                        ]);
+
+                        if (klines15m.length < 60 || klines5m.length < 60 || klines1m.length < 60) continue;
+                        
+                        const closes15m = klines15m.map(k => parseFloat(k[4]));
+                        const ema55_15m = calculateEMA(closes15m, 55).at(-1);
+                        const currentPrice = closes15m.at(-1);
+
+                        const isNearEma = currentPrice >= ema55_15m && (currentPrice / ema55_15m) < 1.02; 
+                        
+                        // --- ENHANCEMENT 2: FIBONACCI CHECK ---
+                        const fibLevels = calculateFibonacciRetracement(klines15m);
+                        let isNearFib = false;
+                        if (fibLevels) {
+                            const fib_0_5 = fibLevels.level_0_5;
+                            const fib_0_618 = fibLevels.level_0_618;
+                            const fib_0_786 = fibLevels.level_0_786;
+                            isNearFib = (Math.abs(currentPrice - fib_0_5) / fib_0_5 < 0.01) || 
+                                        (Math.abs(currentPrice - fib_0_618) / fib_0_618 < 0.01) ||
+                                        (Math.abs(currentPrice - fib_0_786) / fib_0_786 < 0.01);
+                        }
+
+                        // --- ENHANCEMENT 4: MULTI-TIMEFRAME DIVERGENCE ---
+                        const div1m = findRsiBullishDivergence(klines1m);
+                        const div5m = findRsiBullishDivergence(klines5m);
+                        const div15m = findRsiBullishDivergence(klines15m);
+                        const rsi15m = calculateRSI(closes15m, 14).at(-1);
+
+                        const hasDivergence = div15m || ((div1m || div5m) && rsi15m < 50);
+
+                        // --- VOLATILITY FILTER ---
+                        const atr15m = calculateATR(klines15m, 14);
+                        let meetsVolatilityTarget = false;
+                        let atrPercentage = 0;
+                        if (atr15m && currentPrice > 0) {
+                            atrPercentage = (atr15m / currentPrice) * 100;
+                            meetsVolatilityTarget = atrPercentage >= 0.5;
+                        }
+                        
+                        // --- UPDATED FINAL CHECK ---
+                        if (isNearEma && hasDivergence && meetsVolatilityTarget && isNearFib) {
+                            watchedCoins.push({
+                                symbol: ticker.symbol, 
+                                price: parseFloat(ticker.lastPrice), 
+                                change: parseFloat(ticker.priceChangePercent),
+                                atrPercent: atrPercentage
+                            });
+                        }
+                    } catch (e) { console.error(`Failed to process ${ticker.symbol}:`, e); }
+                }
+                
+                loader.classList.add('hidden');
+                summarySection.classList.remove('hidden');
+                resultsTable.classList.remove('hidden');
+                updateWatchlistUI();
+                startTriggerScanner(); 
+            } catch (error) {
+                console.error("Failed to load crypto data:", error);
+                loader.innerHTML = '<p class="text-red-500">Failed to load data. Please try again later.</p>';
+            }
+        }
+
+        function startTriggerScanner() {
+            if (triggerScanInterval) clearInterval(triggerScanInterval);
+            if (watchedCoins.length > 0) {
+                console.log(`Starting trigger scan for ${watchedCoins.length} watched coins at ${new Date().toLocaleTimeString()}`);
+                
+                const runSequentialScan = async () => {
+                    console.log(`Executing trigger scan for ${watchedCoins.length} coins.`);
+                    for (const coin of watchedCoins) {
+                        if (getLiveTrade()) {
+                            console.log(`Active trade found. Stopping current scan cycle.`);
+                            break;
+                        }
+                        await checkForScalpTrigger(coin.symbol);
+                    }
+                };
+                
+                runSequentialScan();
+
+                triggerScanInterval = setInterval(runSequentialScan, 60 * 1000); 
+            }
+        }
+
+        async function runTradeMonitorLoop() {
+            const trade = getLiveTrade();
+            if (!trade) {
+                console.log("Active trade closed. Stopping monitor loop.");
+                if (tradeMonitorTimeout) clearTimeout(tradeMonitorTimeout);
+                tradeMonitorTimeout = null;
+                return; 
+            }
+
+            await monitorActiveTrades();
+
+            const tradeAfterCheck = getLiveTrade();
+            if (tradeAfterCheck) {
+                tradeMonitorTimeout = setTimeout(runTradeMonitorLoop, 30 * 1000);
+            }
+        }
+
+        function startActiveTradeMonitor() {
+            if (tradeMonitorTimeout) clearTimeout(tradeMonitorTimeout);
+            if (stateSaveInterval) clearInterval(stateSaveInterval);
+
+            console.log(`Starting periodic monitor for active trade.`);
+            runTradeMonitorLoop();
+
+            stateSaveInterval = setInterval(() => {
+                const liveTrade = getLiveTrade();
+                if (liveTrade) {
+                    setLocalStorage('tradeLog', tradeLog);
+                } else {
+                    clearInterval(stateSaveInterval);
+                    stateSaveInterval = null;
+                }
+            }, 5000);
+        }
+
+        function updateWatchlistUI() {
+            const tableBody = document.getElementById('coin-table-body');
+            tableBody.innerHTML = ''; 
+            if (watchedCoins.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-gray-400">No coins currently meet the setup criteria.</td></tr>`;
+                return;
+            }
+
+            const activeTrade = getLiveTrade();
+
+            watchedCoins.forEach(coin => {
+                const priceChangeColor = coin.change >= 0 ? 'text-green-400' : 'text-red-400';
+                const tooltipText = `EMA+Fib+RSI Div Confluence. Volatility: ${coin.atrPercent.toFixed(3)}% ATR.`;
+                const trendIcon = createIconWithTooltip(true, tooltipText);
+                
+                let statusHTML;
+                if (activeTrade && activeTrade.symbol === coin.symbol) {
+                    statusHTML = `<td class="whitespace-nowrap px-3 py-4 text-sm"><span class="text-green-400 font-bold">✅ Trade Opened!</span></td>`;
+                } else {
+                    statusHTML = `<td class="whitespace-nowrap px-3 py-4 text-sm text-indigo-400 animate-pulse">Monitoring...</td>`;
+                }
+
+                const row = `
+                    <tr data-symbol="${coin.symbol}">
+                        <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">${coin.symbol.replace('USDT', '')}</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">$${formatPrice(coin.price)}</td>
+                        <td class="whitespace-nowrap px-3 py-4 text-sm ${priceChangeColor}">${coin.change.toFixed(2)}%</td>
+                        <td class="px-3 py-4 text-sm"><div class="flex justify-center">${trendIcon}</div></td>
+                        ${statusHTML}
+                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                            <button class="px-2 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-500" onclick="manualActivateTrade('${coin.symbol}')">Activate</button>
+                        </td>
+                    </tr>`;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        function updateActiveTradeDashboard() {
+            const dashboard = document.getElementById('active-trade-dashboard');
+            const titleEl = document.getElementById('dashboard-title');
+            const symbolEl = document.getElementById('active-trade-symbol');
+            const plEl = document.getElementById('active-trade-pl');
+            const bufferEl = document.getElementById('active-trade-buffer');
+            
+            const activeTrade = getLiveTrade();
+
+            if (activeTrade) {
+                titleEl.textContent = 'Active Trade';
+                titleEl.className = 'text-xl font-bold text-green-400 mb-3 border-b border-gray-700 pb-2';
+                dashboard.style.borderColor = '#34D399';
+                symbolEl.textContent = activeTrade.symbol.replace('USDT', '');
+                plEl.innerHTML = `<span>...</span>`;
+                bufferEl.innerHTML = `<span>...</span>`;
+                dashboard.classList.remove('hidden');
+            } else {
+                dashboard.classList.add('hidden');
+            }
+        }
+        
+        async function handleBuyTrigger(symbol) {
+            triggeredSymbols.add(symbol);
+            
+            const priceData = await (await fetch(`${currentApiConfig.apiBase}${PRICE_TICKER_ENDPOINT}?symbol=${symbol}`)).json();
+            const buyPrice = parseFloat(priceData.price);
+            
+            const klines15m = await (await fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${symbol}&interval=15m&limit=100`)).json();
+            const atr = calculateATR(klines15m, 14);
+
+            // Set dynamic Stop-Loss and Take-Profit
+            const stopLossDistance = atr ? atr * 2 : buyPrice * 0.02; // Use 2x ATR or a 2% fallback
+            const stopLossPrice = buyPrice - stopLossDistance;
+            const takeProfitPrice = buyPrice + (stopLossDistance * 2); // Minimum 2:1 R:R
+            const suggestedTrailingPercent = atr ? parseFloat(((atr * 1.5) / buyPrice * 100).toFixed(1)) : 2.0;
+
+            const signalId = `${symbol}_trade_${Date.now()}`;
+
+            // Check global setting for TSL
+            const isTslEnabledByDefault = getLocalStorage('tslEnabledDefault', true);
+
+            const newTrade = {
+                id: `${symbol}_${Date.now()}`, symbol: symbol, status: 'active',
+                buyTimestamp: new Date().toISOString(), buyPrice: buyPrice,
+                sellTimestamp: null, sellPrice: null, profitPercentage: null, sellReason: null,
+                stopLossPrice: stopLossPrice,
+                takeProfitPrice: takeProfitPrice, 
+                suggestedTrailingStopPercent: suggestedTrailingPercent,
+                trailingStopPercent: isTslEnabledByDefault ? suggestedTrailingPercent : null, // Set based on global setting
+                peakPrice: buyPrice,
+                lastReassessmentTimestamp: Date.now(),
+                clientSignalId: signalId
+            };
+            tradeLog.unshift(newTrade);
+            updateAndPersistLog();
+
+            updateWatchlistUI();
+
+            if (getLiveTrade()) {
+                initWebSocket(newTrade);
+                startActiveTradeMonitor();
+            }
+
+            const payload = {
+                key: getLocalStorage('webhookAuth', ''),
+                exchange_name: "binance", 
+                market: 'USDT/' + symbol.replace('USDT', ''),
+                action: "create",
+                algorithm: "intraday_scalp_v3_buy", 
+                clientSignalId: signalId,
+                comment: `Intraday Scalp V3 Buy: ${symbol} @ $${formatPrice(buyPrice)}. SL: $${formatPrice(stopLossPrice)}, TP: $${formatPrice(takeProfitPrice)}`
+            };
+            sendToWebhook(payload, 'buy');
+        }
+
+        async function handleSellTrigger(trade, sellPrice, reason) {
+            const tradeIndex = tradeLog.findIndex(t => t.id === trade.id);
+            if (tradeIndex === -1 || tradeLog[tradeIndex].status === 'closed') return;
+
+            if (activeTradeSocket) {
+                isSocketIntentionallyClosed = true;
+                activeTradeSocket.close();
+                activeTradeSocket = null;
+                console.log("WebSocket connection closed.");
+            }
+
+            let finalProfitPercentage = null;
+            if (trade && typeof trade.buyPrice === 'number' && trade.buyPrice > 0) {
+                finalProfitPercentage = ((sellPrice - trade.buyPrice) / trade.buyPrice) * 100;
+            } else {
+                console.error(`Could not calculate P/L for ${trade.symbol}. Invalid buyPrice:`, trade.buyPrice);
+            }
+
+            tradeLog[tradeIndex] = { ...tradeLog[tradeIndex], status: 'closed', sellPrice, sellTimestamp: new Date().toISOString(), profitPercentage: finalProfitPercentage, sellReason: reason };
+            updateAndPersistLog();
+
+            updateWatchlistUI(); 
+            
+            const payload = {
+                key: getLocalStorage('webhookAuth', ''),
+                exchange_name: "binance", 
+                market: 'USDT/' + trade.symbol.replace('USDT', ''),
+                action: "close", 
+                algorithm: "intraday_scalp_v3_sell", 
+                clientSignalId: trade.clientSignalId,
+                comment: `Sell: ${trade.symbol} @ $${formatPrice(sellPrice)}. Reason: ${reason}. P/L: ${finalProfitPercentage ? finalProfitPercentage.toFixed(2) : 'N/A'}%`
+            };
+            sendToWebhook(payload, 'sell');
+
+            showNotification('Trade Closed!', `${trade.symbol} sold at $${formatPrice(sellPrice)}. Reason: ${reason}. Profit: ${finalProfitPercentage ? finalProfitPercentage.toFixed(2) : 'N/A'}%`, 'success');
+            if (!document.getElementById('log-modal').classList.contains('hidden')) displayLog();
+        }
+        
+        function updateLiveMetrics(trade, currentPrice) {
+            const livePlPercent = ((currentPrice - trade.buyPrice) / trade.buyPrice) * 100;
+            const plColorClass = livePlPercent >= 0 ? 'text-green-400' : 'text-red-400';
+            
+            const liveTrade = getLiveTrade();
+            if(!liveTrade || liveTrade.id !== trade.id) return;
+
+            const dashboardPl = document.getElementById('active-trade-pl');
+            const dashboardBuffer = document.getElementById('active-trade-buffer');
+            
+            if (dashboardPl) {
+                dashboardPl.innerHTML = `<span class="${plColorClass} font-semibold">${livePlPercent.toFixed(2)}%</span>`;
+            }
+            if (dashboardBuffer && trade.trailingStopPercent) {
+                const stopPrice = trade.peakPrice * (1 - trade.trailingStopPercent / 100);
+                if (currentPrice > stopPrice) {
+                    const bufferPercent = ((currentPrice - stopPrice) / currentPrice) * 100;
+                    dashboardBuffer.innerHTML = `<span class="text-yellow-400 font-semibold">${bufferPercent.toFixed(2)}%</span>`;
+                } else {
+                    dashboardBuffer.innerHTML = `<span class="text-red-500 font-semibold">0.00%</span>`;
+                }
+            } else if (dashboardBuffer) {
+                dashboardBuffer.innerHTML = `<span>---</span>`;
+            }
+        
+            const logModalIsOpen = !document.getElementById('log-modal').classList.contains('hidden');
+            if (logModalIsOpen) {
+                const livePlCell = document.getElementById(`live-pl-${trade.id}`);
+                if (livePlCell) livePlCell.innerHTML = `<span class="${plColorClass} font-semibold">${livePlPercent.toFixed(2)}%</span>`;
+
+                const stopBufferCell = document.getElementById(`stop-buffer-${trade.id}`);
+                if (stopBufferCell && trade.trailingStopPercent) {
+                    const stopPrice = trade.peakPrice * (1 - trade.trailingStopPercent / 100);
+                    if (currentPrice > stopPrice) {
+                        const bufferPercent = ((currentPrice - stopPrice) / currentPrice) * 100;
+                        stopBufferCell.innerHTML = `<span class="text-yellow-400">${bufferPercent.toFixed(2)}%</span>`;
+                    } else {
+                        stopBufferCell.innerHTML = `<span class="text-red-500">0.00%</span>`;
+                    }
+                } else if (stopBufferCell) {
+                    stopBufferCell.textContent = '---';
+                }
+            }
+        }
+        
+        function initWebSocket(trade) {
+            if (activeTradeSocket) {
+                isSocketIntentionallyClosed = true;
+                activeTradeSocket.close();
+            }
+            isSocketIntentionallyClosed = false;
+        
+            const symbol = trade.symbol.toLowerCase();
+            activeTradeSocket = new WebSocket(`${currentApiConfig.wsBase}${symbol}@miniTicker`);
+        
+            activeTradeSocket.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                const currentPrice = parseFloat(data.c);
+        
+                let liveTrade = getLiveTrade();
+                if (!liveTrade || liveTrade.id !== trade.id) return;
+        
+                updateLiveMetrics(liveTrade, currentPrice);
+                
+                if (liveTrade.status === 'active') {
+                    if (currentPrice > liveTrade.peakPrice) {
+                        const tradeIndex = tradeLog.findIndex(t => t.id === liveTrade.id);
+                        if (tradeIndex !== -1) {
+                            tradeLog[tradeIndex].peakPrice = currentPrice;
+                        }
+                    }
+            
+                    // --- EXIT LOGIC ---
+                    if (liveTrade.takeProfitPrice && currentPrice >= liveTrade.takeProfitPrice) {
+                        await handleSellTrigger(liveTrade, currentPrice, 'Take-Profit Hit (2:1 R:R)');
+                    } else if (liveTrade.stopLossPrice && currentPrice <= liveTrade.stopLossPrice) {
+                        await handleSellTrigger(liveTrade, currentPrice, 'Stop-Loss Hit');
+                    } else if (liveTrade.trailingStopPercent) { // This check now correctly handles null TSL
+                        const trailingStopPrice = liveTrade.peakPrice * (1 - liveTrade.trailingStopPercent / 100);
+                        if (currentPrice <= trailingStopPrice) {
+                            await handleSellTrigger(liveTrade, currentPrice, `Trailing Stop Hit (${liveTrade.trailingStopPercent}%)`);
+                        }
+                    }
+                }
+            };
+        
+            activeTradeSocket.onopen = () => console.log(`WebSocket connected for ${trade.symbol}`);
+            
+            activeTradeSocket.onerror = (error) => {
+                console.error(`WebSocket error for ${trade.symbol}. The connection will attempt to automatically reconnect. Full error object:`, error);
+            };
+            
+            activeTradeSocket.onclose = (event) => {
+                if (isSocketIntentionallyClosed) {
+                    console.log(`WebSocket for ${trade.symbol} intentionally closed.`);
+                } else {
+                    console.warn(`WebSocket for ${trade.symbol} disconnected unexpectedly. Reconnecting in 5s...`);
+                    setTimeout(() => {
+                        const currentActiveTrade = getLiveTrade();
+                        if (currentActiveTrade && currentActiveTrade.id === trade.id) {
+                            console.log(`Re-establishing WebSocket for ${trade.symbol}...`);
+                            initWebSocket(trade);
+                        } else {
+                            console.log(`No active trade found for ${trade.symbol}. Halting reconnection.`);
+                        }
+                    }, 5000);
+                }
+            };
+        }
+
+        async function monitorActiveTrades() {
+             const trade = getLiveTrade();
+             if (!trade || trade.status !== 'active') return;
+
+             console.log(`Monitoring active trade for ${trade.symbol} for indicator-based exits.`);
+
+             try {
+                  const klines15m = await fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${trade.symbol}&interval=15m&limit=100`).then(res => res.json());
+
+                  if (!klines15m || klines15m.length < 50) return;
+
+                  const currentPrice = parseFloat(klines15m.at(-1)[4]);
+                  const closes15m = klines15m.map(k => parseFloat(k[4]));
+                  
+                  // Dynamic exit if in profit and momentum wanes
+                  const macd15m = calculateMACD(closes15m);
+                  const inProfit = currentPrice > trade.buyPrice;
+                  if (inProfit && macd15m.histogram.length >= 2 && macd15m.histogram.at(-1) < macd15m.histogram.at(-2)) {
+                        await handleSellTrigger(trade, currentPrice, '15m MACD Downtick (Exhaustion)');
+                        return;
+                  }
+                                
+                  const ema55_15m = calculateEMA(closes15m, 55).at(-1);
+                  if (currentPrice < ema55_15m) {
+                        await handleSellTrigger(trade, currentPrice, 'Below 15m 55 EMA');
+                        return;
+                  }
+
+                  if (await checkOrderBookForSellPressure(trade.symbol)) {
+                        await handleSellTrigger(trade, currentPrice, 'Sell Wall Detected');
+                        return;
+                  }
+              } catch (error) {
+                   console.error(`Error during active trade monitoring for ${trade.symbol}:`, error);
+              }
+        }
+        
+        function createIconWithTooltip(isTicked, text) { return `<div class="tooltip">${isTicked ? greenTickSVG : ''}<span class="tooltiptext">${text}</span></div>`; }
+        
+        function displayLog() {
+            const logContainer = document.getElementById('log-content-container');
+            const logModal = document.getElementById('log-modal');
+            
+            if (tradeLog.length === 0) {
+                logContainer.innerHTML = `<p class="text-gray-400 text-center py-8">No trades have been triggered yet.</p>`;
+            } else {
+                logContainer.innerHTML = `
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-800 sticky top-0">
+                            <tr>
+                                <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">Coin</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Buy Price</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Live P/L %</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Sell Price</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">P/L %</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Sell Reason</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Stop-Loss</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">SL %</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">R:R</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Take Profit</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">TP %</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Trailing</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Stop Buffer %</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Actions</th>
+                                <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Buy Time</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-800 bg-gray-900">
+                            ${tradeLog.map(entry => {
+                                const tpPercentText = entry.takeProfitPrice && entry.buyPrice > 0 
+                                    ? `<span class="${(((entry.takeProfitPrice - entry.buyPrice) / entry.buyPrice) * 100) >= 0 ? 'text-green-400' : 'text-red-400'}">${(((entry.takeProfitPrice - entry.buyPrice) / entry.buyPrice) * 100).toFixed(2)}%</span>` 
+                                    : '---';
+                                
+                                const slPercentText = entry.stopLossPrice && entry.buyPrice > 0
+                                    ? `<span class="text-red-400">${(((entry.stopLossPrice - entry.buyPrice) / entry.buyPrice) * 100).toFixed(2)}%</span>`
+                                    : '---';
+
+                                let statusText;
+                                if (entry.status === 'active') statusText = '<span class="text-green-400">Active</span>';
+                                else if (entry.status === 'closed') statusText = '<span class="text-gray-400">Closed</span>';
+                                
+                                return `
+                                <tr id="log-row-${entry.id}">
+                                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">${entry.symbol.replace('USDT', '')}</td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm">${statusText}</td>
+                                    ${entry.status === 'active' ? `
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                            <input type="number" step="any" id="buy-price-${entry.id}" class="w-24 bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white text-xs" value="${entry.buyPrice}" onchange="updateBuyPrice('${entry.id}')">
+                                        </td>
+                                    ` : `
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">$${formatPrice(entry.buyPrice)}</td>
+                                    `}
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold" id="live-pl-${entry.id}">${entry.status !== 'closed' ? '...' : '---'}</td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">${entry.sellPrice ? '$' + formatPrice(entry.sellPrice) : '---'}</td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm ${entry.profitPercentage === null ? '' : (entry.profitPercentage >= 0 ? 'text-green-400' : 'text-red-400')}">${entry.profitPercentage !== null ? entry.profitPercentage.toFixed(2) + '%' : '---'}</td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-400" style="max-width: 150px; white-space: normal;">${entry.sellReason || '---'}</td>
+                                    
+                                    ${entry.status === 'active' ? `
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">$${formatPrice(entry.stopLossPrice)}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">${slPercentText}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-yellow-400">2:1</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                            <input type="number" step="any" id="tp-${entry.id}" class="w-24 bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white text-xs" placeholder="Price" value="${entry.takeProfitPrice || ''}" oninput="updateTpPercent('${entry.id}')">
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm" id="tp-percent-${entry.id}">${tpPercentText}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                            <div class="flex items-center">
+                                                <input type="checkbox" id="tsl-toggle-${entry.id}" class="h-4 w-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500" ${entry.trailingStopPercent ? 'checked' : ''} onchange="toggleTSL('${entry.id}', this)">
+                                                <input type="number" step="any" id="ts-${entry.id}" class="w-16 ml-2 bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white text-xs" placeholder="e.g., 2" value="${entry.trailingStopPercent || entry.suggestedTrailingStopPercent}" ${entry.trailingStopPercent === null ? 'disabled' : ''}>
+                                                <button class="ml-2 px-2 py-1 bg-indigo-600 text-white text-xs rounded-md hover:bg-indigo-500" onclick="saveTradeSettings('${entry.id}')">Set</button>
+                                            </div>
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold" id="stop-buffer-${entry.id}">${entry.trailingStopPercent ? '...' : '---'}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                            <button class="px-2 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-500" onclick="excludeAndResetTrade('${entry.id}', '${entry.symbol}')">Exclude & Reset</button>
+                                        </td>
+                                    ` : `
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">$${formatPrice(entry.stopLossPrice)}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">${slPercentText}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">2:1</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">${entry.takeProfitPrice ? formatPrice(entry.takeProfitPrice) : '---'}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">${tpPercentText}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">${entry.trailingStopPercent ? entry.trailingStopPercent + '%' : 'Disabled'}</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">---</td>
+                                        <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">---</td>
+                                    `}
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">${new Date(entry.buyTimestamp).toLocaleString()}</td>
+                                </tr>
+                                `}).join('')}
+                        </tbody>
+                    </table>`;
+            }
+            logModal.classList.remove('hidden');
+        }
+
+        window.updateTpPercent = function(tradeId) {
+            const trade = tradeLog.find(t => t.id === tradeId);
+            if (!trade) return;
+
+            const tpInput = document.getElementById(`tp-${tradeId}`);
+            const tpPercentCell = document.getElementById(`tp-percent-${tradeId}`);
+            const takeProfitPrice = parseFloat(tpInput.value);
+
+            if (!tpPercentCell) return;
+
+            if (takeProfitPrice && trade.buyPrice > 0) {
+                const percent = (((takeProfitPrice - trade.buyPrice) / trade.buyPrice) * 100);
+                const colorClass = percent >= 0 ? 'text-green-400' : 'text-red-400';
+                tpPercentCell.innerHTML = `<span class="${colorClass}">${percent.toFixed(2)}%</span>`;
+            } else {
+                tpPercentCell.textContent = '---';
+            }
+        }
+        
+        window.updateBuyPrice = function(tradeId) {
+            const buyPriceInput = document.getElementById(`buy-price-${tradeId}`);
+            const newBuyPrice = parseFloat(buyPriceInput.value);
+            if (isNaN(newBuyPrice) || newBuyPrice <= 0) return;
+
+            const tradeIndex = tradeLog.findIndex(t => t.id === tradeId);
+            if (tradeIndex !== -1) {
+                tradeLog[tradeIndex].buyPrice = newBuyPrice;
+                updateAndPersistLog();
+            }
+
+            updateTpPercent(tradeId); 
+            showSystemToast('Info', `Buy price for ${tradeLog[tradeIndex].symbol} updated.`, 'info');
+        }
+
+        window.saveTradeSettings = function(tradeId) {
+            const takeProfitPrice = parseFloat(document.getElementById(`tp-${tradeId}`).value) || null;
+            const trailingStopPercent = parseFloat(document.getElementById(`ts-${tradeId}`).value) || null;
+            
+            const tradeIndex = tradeLog.findIndex(t => t.id === tradeId);
+            if (tradeIndex !== -1) {
+                tradeLog[tradeIndex].takeProfitPrice = takeProfitPrice;
+                // Only update TSL if the checkbox is checked
+                if (document.getElementById(`tsl-toggle-${tradeId}`).checked) {
+                    tradeLog[tradeIndex].trailingStopPercent = trailingStopPercent;
+                }
+                updateAndPersistLog();
+                showSystemToast('Success', `Settings for ${tradeLog[tradeIndex].symbol} saved.`, 'success');
+            }
+        }
+
+        window.toggleTSL = function(tradeId, checkbox) {
+            const tradeIndex = tradeLog.findIndex(t => t.id === tradeId);
+            if (tradeIndex === -1) return;
+
+            const tsInput = document.getElementById(`ts-${tradeId}`);
+
+            if (checkbox.checked) {
+                // Enable TSL: restore suggested value or the last manually entered value
+                tradeLog[tradeIndex].trailingStopPercent = parseFloat(tsInput.value) || tradeLog[tradeIndex].suggestedTrailingStopPercent;
+                tsInput.disabled = false;
+            } else {
+                // Disable TSL
+                tradeLog[tradeIndex].trailingStopPercent = null;
+                tsInput.disabled = true;
+            }
+            updateAndPersistLog();
+            displayLog(); // Re-render the log to update buffer cells etc.
+        }
+
+        window.excludeAndResetTrade = function(tradeId, symbol) {
+            let exclusionList = getLocalStorage('exclusionList', []);
+            if (!exclusionList.includes(symbol)) {
+                exclusionList.push(symbol);
+                setLocalStorage('exclusionList', exclusionList);
+            }
+
+            if (activeTradeSocket) {
+                isSocketIntentionallyClosed = true;
+                activeTradeSocket.close();
+                activeTradeSocket = null;
+                console.log("WebSocket connection closed due to trade exclusion.");
+            }
+
+            const watchedIndex = watchedCoins.findIndex(coin => coin.symbol === symbol);
+            if (watchedIndex > -1) {
+                watchedCoins.splice(watchedIndex, 1);
+                const row = document.querySelector(`tr[data-symbol="${symbol}"]`);
+                if (row) row.remove();
+            }
+
+            tradeLog = tradeLog.filter(t => t.id !== tradeId);
+            updateAndPersistLog();
+
+            displayLog();
+            showSystemToast('Success', `${symbol} has been added to the exclusion list and the trade has been reset.`, 'success');
+        }
+
+        window.manualActivateTrade = function(symbol) {
+             const liveTrade = getLiveTrade();
+             if(liveTrade) {
+                  showNotification('Action Blocked', `A trade for ${liveTrade.symbol} is already in progress.`, 'error');
+                  return;
+             }
+             showNotification('Manual Activation', `Manually activating trade for ${symbol}.`, 'info');
+             handleBuyTrigger(symbol);
+        }
+
+        async function sendToWebhook(data, type, isTest = false) {
+            let webhookUrl = getLocalStorage('webhookUrl');
+            
+            if (!webhookUrl) {
+                const message = `Webhook URL is not saved.`;
+                if (isTest) showSystemToast('Error', message, 'error');
+                else showNotification('Webhook Error', `Failed to send ${type} signal. ${message}`, 'error');
+                return;
+            }
+
+            if (!webhookUrl.startsWith('http')) webhookUrl = 'https://' + webhookUrl;
+            
+            try {
+                const response = await fetch(webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                if (isTest) {
+                    if (response.ok) showSystemToast('Success', `Test signal sent successfully!`, 'success');
+                    else {
+                        const errorData = await response.json().catch(() => ({ msg: 'Invalid JSON response' }));
+                        showSystemToast('Error', `Failed to send test. Status: ${response.status}. Message: ${errorData.msg || 'No message'}`, 'error');
+                    }
+                }
+            } catch (error) {
+                console.error(`Error sending to webhook:`, error);
+                if (isTest) showSystemToast('Error', 'An error occurred. Check the console.', 'error');
+            }
+        }
+
+        function createToastPopup(title, message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            
+            let borderColorClass = 'border-indigo-500';
+            let titleColorClass = 'text-white';
+            if (type === 'success') {
+                borderColorClass = 'border-green-500';
+                titleColorClass = 'text-green-400';
+            } else if (type === 'error') {
+                borderColorClass = 'border-red-500';
+                titleColorClass = 'text-red-400';
+            }
+
+            toast.className = `transform transition-all duration-500 ease-in-out bg-gray-800 rounded-lg shadow-xl w-full border-t-4 ${borderColorClass} opacity-0 translate-x-full`;
+            
+            toast.innerHTML = `
+                <div class="p-4">
+                    <div class="flex items-start">
+                        <div class="flex-1">
+                            <h3 class="${titleColorClass} text-base font-bold">${title}</h3>
+                            <div class="text-sm text-gray-300 mt-1">${message}</div>
+                        </div>
+                        <div class="ml-4 flex-shrink-0 flex">
+                            <button class="inline-flex text-gray-400 hover:text-white">
+                                <span class="sr-only">Close</span>
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            const removeToast = () => {
+                toast.classList.add('opacity-0', 'translate-x-full');
+                setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 500);
+            };
+
+            const timeoutId = setTimeout(removeToast, 5000);
+
+            toast.querySelector('button').addEventListener('click', () => {
+                clearTimeout(timeoutId); 
+                removeToast();
+            });
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0', 'translate-x-full');
+            });
+        }
+        
+        function showSystemToast(title, message, type = 'info') {
+            createToastPopup(title, message, type);
+        }
+
+        function showNotification(title, message, type = 'info') {
+            // Create the pop-up toast for immediate feedback
+            createToastPopup(title, message, type);
+            
+            // Add to the persistent inbox for later review
+            const newNotification = {
+                id: Date.now(),
+                title,
+                message,
+                type,
+                timestamp: new Date().toISOString()
+            };
+            notifications.unshift(newNotification);
+            setLocalStorage('notifications', notifications);
+            updateInboxCount();
+        }
+
+        function updateInboxCount() {
+            const countEl = document.getElementById('inbox-count');
+            if (notifications.length > 0) {
+                countEl.textContent = notifications.length;
+                countEl.classList.remove('hidden');
+            } else {
+                countEl.classList.add('hidden');
+            }
+        }
+
+        function displayInbox() {
+            const inboxContainer = document.getElementById('inbox-content-container');
+            inboxContainer.innerHTML = '';
+
+            if (notifications.length === 0) {
+                inboxContainer.innerHTML = `<p class="text-gray-400 text-center py-8">Your inbox is empty.</p>`;
+                return;
+            }
+
+            notifications.forEach(n => {
+                let borderColorClass = 'border-indigo-500';
+                let titleColorClass = 'text-white';
+                if (n.type === 'success') {
+                    borderColorClass = 'border-green-500';
+                    titleColorClass = 'text-green-400';
+                } else if (n.type === 'error') {
+                    borderColorClass = 'border-red-500';
+                    titleColorClass = 'text-red-400';
+                }
+
+                const notificationEl = document.createElement('div');
+                notificationEl.className = `bg-gray-900/50 rounded-lg p-3 border-l-4 ${borderColorClass}`;
+                notificationEl.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="${titleColorClass} font-bold">${n.title}</h4>
+                            <p class="text-sm text-gray-300 mt-1">${n.message}</p>
+                        </div>
+                        <span class="text-xs text-gray-500 flex-shrink-0 ml-4">${new Date(n.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                `;
+                inboxContainer.appendChild(notificationEl);
+            });
+        }
+        
+        function clearInbox() {
+            notifications = [];
+            setLocalStorage('notifications', notifications);
+            updateInboxCount();
+            displayInbox();
+        }
+
+        function clearLog() {
+            tradeLog = [];
+            updateAndPersistLog();
+            displayLog();
+            showSystemToast('Log Cleared', 'The trade history has been cleared.', 'info');
+        }
+
+        async function resyncActiveTradeOnLoad() {
+            const activeTrade = getLiveTrade();
+            if (!activeTrade) return;
+
+            console.log(`Resyncing active trade for ${activeTrade.symbol} on page load...`);
+
+            try {
+                const startTime = new Date(activeTrade.buyTimestamp).getTime();
+                const klines = await (await fetch(`${currentApiConfig.apiBase}${KLINE_ENDPOINT}?symbol=${activeTrade.symbol}&interval=1m&startTime=${startTime}&limit=1000`)).json();
+
+                if (!klines || klines.length === 0) {
+                    console.warn("Could not fetch klines for resync. Proceeding with stored state.");
+                    initWebSocket(activeTrade);
+                    startActiveTradeMonitor();
+                    return;
+                }
+
+                let truePeakPrice = activeTrade.peakPrice;
+                let stopLossBreached = false;
+                let breachPrice = 0;
+
+                for (const kline of klines) {
+                    const high = parseFloat(kline[2]);
+                    const low = parseFloat(kline[3]);
+
+                    if (high > truePeakPrice) truePeakPrice = high;
+                    
+                    if (activeTrade.trailingStopPercent) {
+                        const stopPrice = truePeakPrice * (1 - activeTrade.trailingStopPercent / 100);
+                        if (low <= stopPrice) {
+                            stopLossBreached = true;
+                            breachPrice = stopPrice;
+                            break;
+                        }
+                    }
+                }
+                
+                const tradeIndex = tradeLog.findIndex(t => t.id === activeTrade.id);
+                if (tradeIndex === -1) return;
+
+                if (stopLossBreached) {
+                    console.log(`Offline stop-loss breach detected for ${activeTrade.symbol} at ${breachPrice}.`);
+                    await handleSellTrigger(activeTrade, breachPrice, `Trailing Stop Hit (Offline)`);
+                    showNotification('Trade Closed (Offline)', `${activeTrade.symbol} hit its trailing stop while the app was closed.`, 'info');
+                } else {
+                    console.log(`Resync complete. True peak price for ${activeTrade.symbol} is ${truePeakPrice}. Updating state.`);
+                    tradeLog[tradeIndex].peakPrice = truePeakPrice;
+                    updateAndPersistLog();
+                    
+                    initWebSocket(activeTrade);
+                    startActiveTradeMonitor();
+                }
+
+            } catch (error) {
+                console.error("Failed to resync active trade:", error);
+                initWebSocket(activeTrade);
+                startActiveTradeMonitor();
+            }
+        }
+
+        // --- Event Listeners & Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Modals
+            const settingsModal = document.getElementById('settings-modal');
+            const logModal = document.getElementById('log-modal');
+            const inboxModal = document.getElementById('inbox-modal');
+
+            // Inputs
+            const testnetEnabledInput = document.getElementById('testnet-enabled');
+            const tslEnabledDefaultInput = document.getElementById('tsl-enabled-default');
+            const webhookUrlInput = document.getElementById('webhook-url-input');
+            const webhookAuthInput = document.getElementById('webhook-auth-input');
+            const exclusionListInput = document.getElementById('exclusion-list-input');
+            
+            // Settings Modal Listeners
+            document.getElementById('settings-btn').addEventListener('click', () => {
+                exclusionListInput.value = getLocalStorage('exclusionList', []).join(', ');
+                testnetEnabledInput.checked = getLocalStorage('useTestnet', false);
+                tslEnabledDefaultInput.checked = getLocalStorage('tslEnabledDefault', true);
+                settingsModal.classList.remove('hidden');
+            });
+            document.getElementById('close-settings-btn').addEventListener('click', () => settingsModal.classList.add('hidden'));
+            document.getElementById('save-settings-btn').addEventListener('click', () => {
+                setLocalStorage('webhookUrl', webhookUrlInput.value);
+                setLocalStorage('webhookAuth', webhookAuthInput.value);
+                setLocalStorage('useTestnet', testnetEnabledInput.checked);
+                setLocalStorage('tslEnabledDefault', tslEnabledDefaultInput.checked);
+                updateApiConfig();
+                
+                const exclusionList = exclusionListInput.value.split(',').map(s => s.trim().toUpperCase()).filter(s => s);
+                setLocalStorage('exclusionList', exclusionList);
+
+                showSystemToast('Success', 'All settings saved!', 'success');
+                settingsModal.classList.add('hidden');
+            });
+            document.getElementById('test-webhook-btn').addEventListener('click', () => {
+                const testData = {
+                    key: webhookAuthInput.value || '',
+                    exchange_name: "binance", market: "USDT/TEST", action: "test",
+                    algorithm: "test_webhook_signal", clientSignalId: "test_signal_" + Date.now(),
+                    comment: "Test webhook from Crypto Strategy Ranker"
+                };
+                sendToWebhook(testData, 'test', true);
+            });
+
+            // Log Modal Listeners
+            document.getElementById('log-btn').addEventListener('click', () => {
+                displayLog();
+                logModal.classList.remove('hidden');
+            });
+            document.getElementById('close-log-btn').addEventListener('click', () => logModal.classList.add('hidden'));
+            document.getElementById('clear-log-btn').addEventListener('click', clearLog);
+
+            // Inbox Modal Listeners
+            document.getElementById('inbox-btn').addEventListener('click', () => {
+                displayInbox();
+                inboxModal.classList.remove('hidden');
+            });
+            document.getElementById('close-inbox-btn').addEventListener('click', () => inboxModal.classList.add('hidden'));
+            document.getElementById('clear-inbox-btn').addEventListener('click', clearInbox);
+            
+            // Load settings & state on startup
+            webhookUrlInput.value = getLocalStorage('webhookUrl', '');
+            webhookAuthInput.value = getLocalStorage('webhookAuth', '');
+            updateApiConfig();
+            
+            tradeLog = getLocalStorage('tradeLog', []);
+            notifications = getLocalStorage('notifications', []);
+            updateActiveTradeDashboard();
+            updateInboxCount();
+            
+            await resyncActiveTradeOnLoad();
+
+            // ADDED API STATUS CHECK ON LOAD AND INTERVAL
+            checkApiStatus(); // Check status immediately on load
+            setInterval(checkApiStatus, 60000); // Re-check every 60 seconds
+
+            function scheduleNextSetupScan() {
+                if (htfScanCountdown) clearInterval(htfScanCountdown);
+                const msInInterval = 15 * 60 * 1000;
+                const now = new Date();
+                const currentBlockStart = Math.floor(now.getTime() / msInInterval) * msInInterval;
+                const nextUpdate = currentBlockStart + msInInterval;
+                
+                const timeToNext = nextUpdate - now.getTime();
+
+                setTimeout(() => { runSetupScan().then(scheduleNextSetupScan); }, timeToNext > 0 ? timeToNext : msInInterval);
+                const countdownElement = document.getElementById('countdown');
+
+                htfScanCountdown = setInterval(() => {
+                    const remainingMs = nextUpdate - new Date().getTime();
+                    if (remainingMs <= 0) {
+                        countdownElement.textContent = 'Updating...';
+                        clearInterval(htfScanCountdown);
+                        return;
+                    }
+                    const minutes = Math.floor((remainingMs % 3600000) / 60000);
+                    const seconds = Math.floor((remainingMs % 60000) / 1000);
+                    countdownElement.textContent = `Next setup scan in: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }, 1000);
+            }
+            runSetupScan();
+            scheduleNextSetupScan();
+        });
+    </script>
+</body>
+</html>
